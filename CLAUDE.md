@@ -35,6 +35,9 @@ project_docs/
   html_chat_client.md    # HTML 클라이언트 문서
   claude_code_tools.md   # Claude Code 도구 목록 및 구현 상태
   security_risks.md      # 보안 위험 분석 문서
+  security_measures.md   # 보안 조치 문서
+  supabase_realtime.md   # Supabase Realtime 보안 설정 문서
+  railway.md             # Railway 배포 가이드
   todo.md                # 할 일 목록
 supabase/                # Supabase 프로젝트 설정
 chat_bot/               # Python 채팅봇 클라이언트
@@ -58,6 +61,17 @@ README.md                # 프로젝트 소개 문서
 ## 보안 위험 분석
 
 상세 내용: [project_docs/security_risks.md](project_docs/security_risks.md)
+
+## 배포 구조
+
+상세 내용: [project_docs/railway.md](project_docs/railway.md)
+
+```
+HTML 클라이언트 (Railway 배포) ←→ Supabase Realtime ←→ Python 봇 (개발자 로컬 PC)
+```
+
+- **HTML 클라이언트**: Railway에 정적 파일로 배포
+- **Python 봇**: Claude Code CLI가 설치된 개발자 PC에서 로컬 실행 (배포 불필요)
 
 ## 주요 기능
 
@@ -103,6 +117,11 @@ README.md                # 프로젝트 소개 문서
   - HTML 클라이언트: 로그아웃 시 페이지 새로고침 (상태 완전 초기화)
   - 토큰 보안: 메시지에 auth_token 포함하지 않음 (Broadcast 노출 방지)
   - 인증 방식: Supabase Auth 인증된 사용자만 채널 접속 가능
+- Supabase Realtime Private Channel + RLS
+  - 대시보드: "Allow public access" 비활성화
+  - RLS 정책: realtime.messages 테이블에 authenticated 사용자만 접근 허용
+  - Private Channel: 클라이언트에서 `{config: {private: true}}` 설정
+  - Python 봇: Supabase Auth 로그인 (봇 전용 계정)
 
 ## 안정성 기능
 
@@ -114,7 +133,7 @@ README.md                # 프로젝트 소개 문서
 - 연결 상태 관리: `is_connected` 플래그로 연결 상태 추적
 - 예외 처리 강화: stdin/stdout 오류, 프로세스 종료 등 다양한 상황 처리
 - 세션 유지: 봇 시작 시 UUID 생성하여 동일 세션으로 대화 컨텍스트 유지
-- 인증: Supabase Auth 의존 (채널 접속 시 인증 완료)
+- 인증: Supabase Auth 로그인 (봇 전용 계정으로 Private Channel 접속)
 
 ### HTML 클라이언트
 - 연결 끊김 처리: 자동 재연결 없이 "연결이 끊어졌습니다. 새로고침하여 연결을 다시 시도하세요." 메시지 표시
@@ -125,7 +144,14 @@ README.md                # 프로젝트 소개 문서
 
 ## 버전 정보
 
-### v2.0 (2026-01-30) - Supabase Auth + MFA (테스트 중)
+### v2.1 (2026-01-30) - Private Channel + RLS (테스트 중)
+- **Private Channel**: Supabase Realtime Private Channel 적용
+- **RLS 정책**: realtime.messages 테이블에 인증된 사용자만 접근 가능
+- **Python 봇 인증**: 봇 전용 계정으로 Supabase Auth 로그인
+- **보안 강화**: ANON_KEY만으로는 채널 접속 불가 (서버 측 RLS 적용)
+- **테스트 필요**: Private Channel 접속 및 메시지 송수신 확인
+
+### v2.0 (2026-01-30) - Supabase Auth + MFA
 - **Supabase Auth 통합**: 기존 자체 OTP 시스템을 Supabase Auth로 교체
 - **이메일/비밀번호 로그인**: Supabase Auth signInWithPassword
 - **MFA 지원**: Supabase MFA API로 TOTP 2단계 인증 (AAL1 → AAL2)
@@ -134,8 +160,6 @@ README.md                # 프로젝트 소개 문서
 - **로그아웃 버그 수정**: 페이지 새로고침으로 상태 완전 초기화
 - **중복 연결 메시지 방지**: `subscribedHandled` 플래그 추가
 - **자동 재연결 제거**: 연결 끊김 시 새로고침 안내 메시지 표시
-- **테스트 완료**: 로그인 → TOTP 등록 → MFA 인증 → 채팅 화면 진입
-- **테스트 필요**: 채팅 메시지 전송 및 Claude 응답 확인
 
 ### v1.3 (2026-01-30) - OTP 인증 강화 (deprecated)
 - 자체 OTP 시스템 (v2.0에서 Supabase Auth로 대체됨)
