@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supabase Realtime Chat</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: #16213e;
+            padding: 12px 16px;
+            border-bottom: 1px solid #0f3460;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+        .header h1 {
+            font-size: 1.2rem;
+            color: #e94560;
+            white-space: nowrap;
+        }
+        .header-center {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .status {
+            font-size: 0.8rem;
+            color: #888;
+            white-space: nowrap;
+        }
+        .status.connected {
+            color: #4ade80;
+        }
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            padding-top: 60px;
+            padding-bottom: 80px;
+        }
+        .message {
+            margin-bottom: 12px;
+            padding: 10px 14px;
+            background: #16213e;
+            border-radius: 8px;
+            max-width: 80%;
+        }
+        .message.mine {
+            background: #0f3460;
+            margin-left: auto;
+        }
+        .message .sender {
+            font-size: 0.75rem;
+            color: #e94560;
+            margin-bottom: 4px;
+        }
+        .message .text {
+            font-size: 0.95rem;
+            line-height: 1.4;
+        }
+        /* Markdown 스타일 */
+        .message .text p {
+            margin: 0 0 8px 0;
+        }
+        .message .text p:last-child {
+            margin-bottom: 0;
+        }
+        .message .text code {
+            background: #1a1a2e;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.85em;
+        }
+        .message .text pre {
+            background: #1a1a2e;
+            padding: 12px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 8px 0;
+        }
+        .message .text pre code {
+            background: none;
+            padding: 0;
+        }
+        .message .text ul, .message .text ol {
+            margin: 8px 0;
+            padding-left: 20px;
+        }
+        .message .text li {
+            margin: 4px 0;
+        }
+        .message .text blockquote {
+            border-left: 3px solid #e94560;
+            margin: 8px 0;
+            padding-left: 12px;
+            color: #aaa;
+        }
+        .message .text h1, .message .text h2, .message .text h3 {
+            margin: 12px 0 8px 0;
+            color: #e94560;
+        }
+        .message .text h1 { font-size: 1.3em; }
+        .message .text h2 { font-size: 1.15em; }
+        .message .text h3 { font-size: 1em; }
+        .message .text a {
+            color: #4ade80;
+            text-decoration: none;
+        }
+        .message .text a:hover {
+            text-decoration: underline;
+        }
+        .message .text table {
+            border-collapse: collapse;
+            margin: 8px 0;
+            width: 100%;
+        }
+        .message .text th, .message .text td {
+            border: 1px solid #333;
+            padding: 6px 10px;
+            text-align: left;
+        }
+        .message .text th {
+            background: #1a1a2e;
+        }
+
+        /* Progress UI */
+        .progress-container {
+            background: #0d1b2a;
+            border: 1px solid #1b263b;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            max-width: 90%;
+        }
+        .progress-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .progress-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #e94560;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+        .progress-icon.spinning {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .progress-title {
+            font-size: 0.85rem;
+            color: #e94560;
+            font-weight: 600;
+        }
+        .progress-model {
+            font-size: 0.7rem;
+            color: #666;
+            margin-left: auto;
+        }
+        .progress-steps {
+            margin-top: 8px;
+        }
+        .progress-step {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 0;
+            font-size: 0.8rem;
+            color: #aaa;
+        }
+        .progress-step.active {
+            color: #4ade80;
+        }
+        .progress-step.completed {
+            color: #666;
+        }
+        .step-indicator {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+        }
+        .step-indicator.active {
+            background: #e94560;
+            animation: pulse 1s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .step-indicator.completed {
+            background: #4ade80;
+        }
+        .progress-bar-container {
+            margin-top: 10px;
+            background: #1a1a2e;
+            border-radius: 4px;
+            height: 4px;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #e94560, #4ade80);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        .progress-stats {
+            display: flex;
+            gap: 12px;
+            margin-top: 8px;
+            font-size: 0.7rem;
+            color: #666;
+        }
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .stat-value {
+            color: #aaa;
+        }
+
+        /* Edit Diff UI */
+        .edit-diff {
+            background: #0d1b2a;
+            border-radius: 6px;
+            margin: 8px 0 4px 0;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.75rem;
+            overflow: hidden;
+            width: 100%;
+        }
+        .edit-diff-header {
+            background: #1b263b;
+            padding: 6px 10px;
+            color: #888;
+            font-size: 0.7rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .edit-diff-toggle {
+            cursor: pointer;
+            color: #e94560;
+            font-size: 0.7rem;
+        }
+        .edit-diff-toggle:hover {
+            text-decoration: underline;
+        }
+        .edit-diff-content {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .edit-diff-content.collapsed {
+            max-height: 0;
+            overflow: hidden;
+        }
+        .diff-old, .diff-new {
+            padding: 8px 10px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            border-bottom: 1px solid #1b263b;
+        }
+        .diff-old {
+            background: rgba(239, 68, 68, 0.1);
+            color: #f87171;
+        }
+        .diff-old::before {
+            content: '- ';
+            color: #ef4444;
+            font-weight: bold;
+        }
+        .diff-new {
+            background: rgba(74, 222, 128, 0.1);
+            color: #4ade80;
+        }
+        .diff-new::before {
+            content: '+ ';
+            color: #22c55e;
+            font-weight: bold;
+        }
+        .diff-label {
+            font-size: 0.65rem;
+            color: #666;
+            margin-bottom: 2px;
+        }
+
+        /* Permission Request UI */
+        .permission-container {
+            background: #1a1a2e;
+            border: 2px solid #f59e0b;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            max-width: 90%;
+        }
+        .permission-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        .permission-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #f59e0b;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            animation: pulse 1s ease-in-out infinite;
+        }
+        .permission-title {
+            font-size: 0.95rem;
+            color: #f59e0b;
+            font-weight: 600;
+        }
+        .permission-detail {
+            background: #0d1b2a;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 12px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.85rem;
+            color: #ddd;
+            word-break: break-all;
+            max-height: 100px;
+            overflow-y: auto;
+        }
+        .permission-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        .permission-btn {
+            flex: 1;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .permission-btn.approve {
+            background: #4ade80;
+            color: #000;
+        }
+        .permission-btn.approve:hover {
+            background: #22c55e;
+        }
+        .permission-btn.deny {
+            background: #ef4444;
+            color: #fff;
+        }
+        .permission-btn.deny:hover {
+            background: #dc2626;
+        }
+        .permission-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .permission-resolved {
+            border-color: #666;
+            opacity: 0.6;
+        }
+        .permission-resolved .permission-icon {
+            animation: none;
+        }
+
+        .input-container {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            gap: 8px;
+            padding: 16px;
+            background: #16213e;
+            border-top: 1px solid #0f3460;
+            z-index: 100;
+        }
+        input {
+            flex: 1;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 8px;
+            background: #1a1a2e;
+            color: #eee;
+            font-size: 1rem;
+        }
+        input:focus {
+            outline: 2px solid #e94560;
+        }
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            background: #e94560;
+            color: #fff;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: #d63050;
+        }
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+        .login-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            gap: 16px;
+        }
+        .login-container input {
+            width: 300px;
+            text-align: center;
+        }
+        .hidden {
+            display: none !important;
+        }
+        .change-name-btn {
+            padding: 6px 12px;
+            font-size: 0.75rem;
+            background: #0f3460;
+            border: 1px solid #e94560;
+            white-space: nowrap;
+        }
+        .change-name-btn:hover {
+            background: #e94560;
+        }
+        .auto-scroll-container {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+        .auto-scroll-container input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            accent-color: #e94560;
+        }
+        .auto-scroll-container label {
+            font-size: 0.75rem;
+            color: #888;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <!-- 로그인 화면 -->
+    <div id="loginScreen" class="login-container">
+        <h1>Supabase Realtime Chat</h1>
+        <input type="text" id="usernameInput" placeholder="사용자 이름 입력" maxlength="20">
+        <button id="joinBtn">참가하기</button>
+    </div>
+
+    <!-- 채팅 화면 -->
+    <div id="chatScreen" class="hidden">
+        <div class="header">
+            <h1>Chat Room</h1>
+            <div class="header-center">
+                <div id="status" class="status">연결 중...</div>
+                <div class="auto-scroll-container">
+                    <input type="checkbox" id="autoScrollCheckbox" checked>
+                    <label for="autoScrollCheckbox">자동 스크롤</label>
+                </div>
+            </div>
+            <button id="changeNameBtn" class="change-name-btn">이름변경</button>
+        </div>
+        <div id="chatContainer" class="chat-container"></div>
+        <div class="input-container">
+            <input type="text" id="messageInput" placeholder="메시지 입력..." maxlength="500">
+            <button id="sendBtn">전송</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="config.js"></script>
+    <script src="chat.js"></script>
+</body>
+</html>

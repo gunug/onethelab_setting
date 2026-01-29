@@ -34,3 +34,13 @@
 ## 클라이언트 설정
 * [ ] (선택) Flutter 클라이언트 설정
 * [ ] (선택) Godot 클라이언트 설정
+* [x] (선택) Python 채팅봇 설정
+* [x] (선택) HTML/JS 웹 클라이언트 설정
+
+## Python 채팅봇 (chat_bot)
+
+상세 내용: [python_chat_bot.md](python_chat_bot.md)
+
+## HTML/JS 웹 클라이언트 (chat_client)
+
+상세 내용: [html_chat_client.md](html_chat_client.md)
