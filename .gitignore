@@ -1,3 +1,9 @@
+# Environment variables (sensitive)
+.env
+*.env
+chat_bot/.env
+chat_client/config.js
+
 # Supabase
 supabase/.temp/
 
