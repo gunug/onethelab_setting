@@ -1,10 +1,6 @@
 // USD to KRW 환율 (2026년 1월 기준)
 const USD_TO_KRW = 1430;
 
-// 재연결 설정
-const RECONNECT_DELAY = 3000;  // 재연결 대기 시간 (ms)
-const MAX_RECONNECT_ATTEMPTS = 10;  // 최대 재연결 시도 횟수
-const HEARTBEAT_INTERVAL = 30000;  // 하트비트 간격 (ms)
 
 class ChatClient {
     constructor() {
@@ -14,9 +10,6 @@ class ChatClient {
         this.username = '';  // 표시용 이름 (이메일 또는 메타데이터)
         this.currentProgress = null;
         this.pendingPermissions = {};  // request_id -> element
-        this.reconnectAttempts = 0;
-        this.reconnectTimer = null;
-        this.heartbeatTimer = null;
         this.isConnecting = false;
         this.hasConnectedOnce = false;  // 첫 연결 여부
         this.subscribedHandled = false;  // 현재 연결의 SUBSCRIBED 처리 여부
@@ -110,26 +103,6 @@ class ChatClient {
                 localStorage.setItem('queue_sound', this.queueSoundEnabled ? 'true' : 'false');
             });
         }
-
-        // 페이지 가시성 변경 감지 (탭 전환 시 재연결)
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible' && this.user) {
-                this.checkConnection();
-            }
-        });
-
-        // 온라인/오프라인 감지
-        window.addEventListener('online', () => {
-            console.log('네트워크 연결됨');
-            if (this.user) {
-                this.reconnect();
-            }
-        });
-
-        window.addEventListener('offline', () => {
-            console.log('네트워크 연결 끊김');
-            this.updateStatus('오프라인', false);
-        });
 
         // 큐 UI 초기화
         this.initQueueUI();
@@ -470,17 +443,14 @@ class ChatClient {
         this.currentProgress = null;
 
         // Python 봇에 세션 리셋 요청 전송
+        // 토큰을 전송하지 않음 - Supabase Auth 인증된 사용자만 채널에 접속 가능
         if (this.channel) {
             try {
-                const { data: { session } } = await this.supabase.auth.getSession();
-                const accessToken = session?.access_token || '';
-
                 await this.channel.send({
                     type: 'broadcast',
                     event: 'session_reset',
                     payload: {
-                        username: this.username,
-                        auth_token: accessToken
+                        username: this.username
                     }
                 });
                 this.addSystemMessage('새 세션이 시작되었습니다.');
@@ -559,18 +529,16 @@ class ChatClient {
                             this.requestUsageStatus();
                         }
 
-                        this.startHeartbeat();
-
                     } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
                         console.log('채널 연결 실패/종료:', status, err);
-                        this.subscribedHandled = false;  // 재연결 시 메시지 표시를 위해 리셋
+                        this.subscribedHandled = false;
                         this.updateStatus('연결 끊김', false);
-                        this.scheduleReconnect();
+                        this.addSystemMessage('연결이 끊어졌습니다. 새로고침하여 연결을 다시 시도하세요.');
                     } else if (status === 'TIMED_OUT') {
                         console.log('채널 연결 타임아웃');
-                        this.subscribedHandled = false;  // 재연결 시 메시지 표시를 위해 리셋
+                        this.subscribedHandled = false;
                         this.updateStatus('연결 타임아웃', false);
-                        this.scheduleReconnect();
+                        this.addSystemMessage('연결이 끊어졌습니다. 새로고침하여 연결을 다시 시도하세요.');
                     }
                 });
 
@@ -578,21 +546,11 @@ class ChatClient {
             console.error('연결 오류:', error);
             this.isConnecting = false;
             this.updateStatus('연결 실패', false);
-            this.scheduleReconnect();
+            this.addSystemMessage('연결이 끊어졌습니다. 새로고침하여 연결을 다시 시도하세요.');
         }
     }
 
     async cleanup() {
-        // 타이머 정리
-        if (this.reconnectTimer) {
-            clearTimeout(this.reconnectTimer);
-            this.reconnectTimer = null;
-        }
-        if (this.heartbeatTimer) {
-            clearInterval(this.heartbeatTimer);
-            this.heartbeatTimer = null;
-        }
-
         // 채널 정리 (완전히 제거)
         if (this.channel) {
             try {
@@ -602,58 +560,6 @@ class ChatClient {
             }
             this.channel = null;
         }
-    }
-
-    scheduleReconnect() {
-        if (this.reconnectTimer) return;
-
-        this.reconnectAttempts++;
-
-        if (this.reconnectAttempts > MAX_RECONNECT_ATTEMPTS) {
-            this.updateStatus('연결 실패 - 새로고침 필요', false);
-            this.addSystemMessage('연결을 복구할 수 없습니다. 페이지를 새로고침해주세요.');
-            return;
-        }
-
-        // 지수 백오프: 재시도 횟수에 따라 대기 시간 증가
-        const delay = Math.min(RECONNECT_DELAY * Math.pow(1.5, this.reconnectAttempts - 1), 30000);
-        this.updateStatus(`재연결 중... (${this.reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`, false);
-
-        console.log(`${delay}ms 후 재연결 시도 (${this.reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
-
-        this.reconnectTimer = setTimeout(() => {
-            this.reconnectTimer = null;
-            this.reconnect();
-        }, delay);
-    }
-
-    async reconnect() {
-        console.log('재연결 시도...');
-        await this.connectChannel();
-    }
-
-    checkConnection() {
-        // 연결 중이면 무시
-        if (this.isConnecting) {
-            console.log('연결 상태 확인: 이미 연결 시도 중');
-            return;
-        }
-
-        // 연결 상태 확인 및 필요시 재연결
-        if (!this.channel) {
-            console.log('연결 상태 확인: 연결되지 않음, 재연결 시도');
-            this.reconnect();
-        }
-    }
-
-    startHeartbeat() {
-        if (this.heartbeatTimer) {
-            clearInterval(this.heartbeatTimer);
-        }
-
-        this.heartbeatTimer = setInterval(() => {
-            this.checkConnection();
-        }, HEARTBEAT_INTERVAL);
     }
 
     async requestUsageStatus() {
@@ -1521,17 +1427,14 @@ class ChatClient {
         if (!message || !this.channel) return;
 
         try {
-            // JWT 토큰 가져오기
-            const { data: { session } } = await this.supabase.auth.getSession();
-            const accessToken = session?.access_token || '';
-
+            // 토큰을 전송하지 않음 - Supabase Auth 인증된 사용자만 채널에 접속 가능하므로
+            // 메시지에 토큰을 포함하면 Broadcast로 모든 구독자에게 노출되는 보안 문제 발생
             await this.channel.send({
                 type: 'broadcast',
                 event: 'message',
                 payload: {
                     username: this.username,
-                    message: message,
-                    auth_token: accessToken
+                    message: message
                 }
             });
 
@@ -1539,8 +1442,7 @@ class ChatClient {
             this.messageInput.value = '';
         } catch (error) {
             console.error('전송 오류:', error);
-            this.addSystemMessage('메시지 전송 실패. 연결을 확인하세요.');
-            this.checkConnection();
+            this.addSystemMessage('메시지 전송 실패. 새로고침하여 연결을 다시 시도하세요.');
         }
     }
 

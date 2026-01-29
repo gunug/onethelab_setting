@@ -12,8 +12,6 @@ from datetime import datetime, timedelta
 from queue import Queue, Empty
 from dotenv import load_dotenv
 from supabase._async.client import create_client, AsyncClient
-import jwt  # PyJWT
-from jwt import PyJWKClient
 
 # Windows asyncio SSL 종료 문제 해결
 if sys.platform == "win32":
@@ -23,7 +21,6 @@ load_dotenv()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
-SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")  # Supabase 대시보드 > Settings > API > JWT Secret
 
 # USD to KRW 환율 (2026년 1월 기준)
 USD_TO_KRW = 1430
@@ -272,74 +269,11 @@ class ChatBot:
         # 요청 큐 관련
         self.request_queue = []  # 대기 중인 요청 목록 [{"sender": str, "message": str}, ...]
         self.queue_lock = threading.Lock()  # 큐 접근 동기화
-        # JWT 인증 관련 (ES256 with JWKS)
-        self.auth_enabled = bool(SUPABASE_URL)
-        self.jwks_client = None
-        if self.auth_enabled and SUPABASE_URL:
-            jwks_url = f"{SUPABASE_URL}/auth/v1/.well-known/jwks.json"
-            try:
-                self.jwks_client = PyJWKClient(jwks_url)
-                print(f"[인증] JWKS 클라이언트 초기화: {jwks_url}")
-            except Exception as e:
-                print(f"[경고] JWKS 클라이언트 초기화 실패: {e}")
-                self.auth_enabled = False
 
     def reset_session(self):
         """Claude 세션 리셋 - 새 세션 ID 생성"""
         self.session_id = str(uuid.uuid4())
         self.session_started = False
-
-    def verify_jwt_token(self, token: str) -> dict:
-        """Supabase JWT 토큰 검증 (ES256 with JWKS)
-
-        Returns:
-            dict: 성공 시 페이로드 반환, 실패 시 None
-        """
-        if not self.auth_enabled or not self.jwks_client:
-            # 인증 비활성화 시 통과
-            return {"sub": "anonymous", "email": "anonymous@local"}
-
-        if not token:
-            return None
-
-        try:
-            # JWKS에서 토큰의 kid에 해당하는 공개키 가져오기
-            signing_key = self.jwks_client.get_signing_key_from_jwt(token)
-
-            # 공개키로 토큰 검증
-            payload = jwt.decode(
-                token,
-                signing_key.key,
-                algorithms=["ES256"],
-                audience="authenticated"
-            )
-
-            print(f"[인증] JWT 검증 성공: {payload.get('email', 'unknown')}")
-            return payload
-
-        except jwt.ExpiredSignatureError:
-            print("[인증] JWT 토큰 만료됨")
-            return None
-        except jwt.InvalidTokenError as e:
-            print(f"[인증] JWT 토큰 검증 실패: {e}")
-            return None
-        except Exception as e:
-            print(f"[인증] JWT 검증 오류: {e}")
-            return None
-
-    def is_token_valid(self, token: str) -> bool:
-        """JWT 토큰 유효성 확인"""
-        if not self.auth_enabled:
-            return True  # 인증 비활성화 시 항상 유효
-
-        return self.verify_jwt_token(token) is not None
-
-    def get_user_email(self, token: str) -> str:
-        """JWT 토큰에서 사용자 이메일 추출"""
-        payload = self.verify_jwt_token(token)
-        if payload:
-            return payload.get("email", "unknown")
-        return None
 
     def add_to_queue(self, sender: str, message: str):
         """요청을 대기열에 추가"""
@@ -389,26 +323,19 @@ class ChatBot:
 
         if event_type == "session_reset":
             sender = data.get("username", "unknown")
-            auth_token = data.get("auth_token", "")
-            # 인증된 사용자만 세션 리셋 가능
-            if self.auth_enabled and not self.is_token_valid(auth_token):
-                print(f"[경고] 인증되지 않은 세션 리셋 시도: {sender}")
-                return
+            # Supabase Auth + MFA 인증된 사용자만 채널에 접속 가능하므로
+            # 별도의 토큰 검증 없이 세션 리셋 허용
             self.reset_session()
             print(f"[시스템] {sender}님이 세션을 리셋했습니다. 새 세션 ID: {self.session_id}")
             return
 
         sender = data.get("username", "unknown")
         message = data.get("message", "")
-        auth_token = data.get("auth_token", "")
         print(f"[{sender}]: {message}")
 
+        # Supabase Auth + MFA 인증된 사용자만 채널에 접속 가능하므로
+        # 메시지에 토큰을 포함하지 않음 (Broadcast로 토큰 노출 방지)
         if self.enable_claude and sender != self.username and sender != self.CLAUDE_USERNAME:
-            # JWT 인증 확인
-            if self.auth_enabled and not self.is_token_valid(auth_token):
-                print(f"[경고] 인증되지 않은 메시지 무시: {sender}")
-                return
-
             if self.loop:
                 # 모든 요청을 먼저 대기열에 추가
                 queue_length = self.add_to_queue(sender, message)
@@ -899,10 +826,7 @@ async def main():
     print("-" * 40)
     print("Claude가 준비되었습니다.")
     print(f"세션 ID: {bot.session_id}")
-    if SUPABASE_JWT_SECRET:
-        print("JWT 인증: 활성화 (Supabase Auth)")
-    else:
-        print("JWT 인증: 비활성화 (SUPABASE_JWT_SECRET 설정 필요)")
+    print("인증: Supabase Auth + MFA (채널 접속 시 인증 완료)")
     print("다른 사용자의 메시지에 자동 응답합니다.")
     print("'quit' 입력 시 종료")
     print("-" * 40)

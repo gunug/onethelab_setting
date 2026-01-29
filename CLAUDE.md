@@ -101,9 +101,8 @@ README.md                # 프로젝트 소개 문서
   - HTML 클라이언트: MFA 인증 화면 (TOTP 검증)
   - HTML 클라이언트: TOTP 등록 화면 (QR 코드 표시, 최초 설정)
   - HTML 클라이언트: 로그아웃 시 페이지 새로고침 (상태 완전 초기화)
-  - Python 봇: JWT 토큰 검증 (ES256 + JWKS, PyJWT + cryptography 사용)
-  - JWKS 엔드포인트에서 공개키 자동 다운로드 (`{SUPABASE_URL}/auth/v1/.well-known/jwks.json`)
-  - SUPABASE_URL 미설정 시 인증 없이 통과 (기존 동작 유지)
+  - 토큰 보안: 메시지에 auth_token 포함하지 않음 (Broadcast 노출 방지)
+  - 인증 방식: Supabase Auth 인증된 사용자만 채널 접속 가능
 
 ## 안정성 기능
 
@@ -115,16 +114,11 @@ README.md                # 프로젝트 소개 문서
 - 연결 상태 관리: `is_connected` 플래그로 연결 상태 추적
 - 예외 처리 강화: stdin/stdout 오류, 프로세스 종료 등 다양한 상황 처리
 - 세션 유지: 봇 시작 시 UUID 생성하여 동일 세션으로 대화 컨텍스트 유지
-- JWT 인증: Supabase JWT 토큰 검증 (ES256 + JWKS), 인증된 사용자만 Claude 요청 처리
+- 인증: Supabase Auth 의존 (채널 접속 시 인증 완료)
 
 ### HTML 클라이언트
-- 자동 재연결: 연결 끊김 시 지수 백오프로 재연결 (최대 10회)
-- 네트워크 감지: online/offline 이벤트로 네트워크 상태 감지
-- 페이지 가시성 감지: 탭 전환 시 연결 상태 확인
-- 하트비트: 30초 간격으로 연결 상태 점검 (연결 중 상태 체크하여 중복 방지)
-- 연결 정리: 재연결 전 기존 채널 완전 제거 (`removeChannel()`)
+- 연결 끊김 처리: 자동 재연결 없이 "연결이 끊어졌습니다. 새로고침하여 연결을 다시 시도하세요." 메시지 표시
 - 전송 실패 처리: 메시지 전송 실패 시 시스템 메시지 표시
-- 첫 연결/재연결 구분: 입장 메시지는 첫 연결 시에만, 재연결 시 "다시 연결되었습니다" 표시
 - 중복 SUBSCRIBED 방지: `subscribedHandled` 플래그로 중복 이벤트 무시
 - Supabase Auth: 이메일/비밀번호 로그인, MFA 인증, TOTP 등록
 - 로그아웃: 페이지 새로고침으로 모든 상태 완전 초기화
@@ -136,10 +130,10 @@ README.md                # 프로젝트 소개 문서
 - **이메일/비밀번호 로그인**: Supabase Auth signInWithPassword
 - **MFA 지원**: Supabase MFA API로 TOTP 2단계 인증 (AAL1 → AAL2)
 - **TOTP 등록 화면**: 새 사용자를 위한 QR 코드 기반 TOTP 등록
-- **JWT 토큰 검증**: ES256 + JWKS (Supabase 클라우드 호환)
-- **JWKS 자동 다운로드**: `{SUPABASE_URL}/auth/v1/.well-known/jwks.json`
+- **토큰 보안 강화**: 메시지에 auth_token 포함하지 않음 (Broadcast 노출 방지)
 - **로그아웃 버그 수정**: 페이지 새로고침으로 상태 완전 초기화
 - **중복 연결 메시지 방지**: `subscribedHandled` 플래그 추가
+- **자동 재연결 제거**: 연결 끊김 시 새로고침 안내 메시지 표시
 - **테스트 완료**: 로그인 → TOTP 등록 → MFA 인증 → 채팅 화면 진입
 - **테스트 필요**: 채팅 메시지 전송 및 Claude 응답 확인
 
