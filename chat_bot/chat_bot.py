@@ -5,6 +5,7 @@ import asyncio
 import subprocess
 import threading
 import signal
+import uuid
 from queue import Queue, Empty
 from dotenv import load_dotenv
 from supabase._async.client import create_client, AsyncClient
@@ -51,11 +52,21 @@ def test_claude_cli():
         return False
 
 
-def run_claude_stream(prompt: str, output_queue: Queue, stop_event: threading.Event):
-    """별도 스레드에서 Claude CLI 스트리밍 실행 (프린트 모드, stdin 방식)"""
+def run_claude_stream(prompt: str, output_queue: Queue, stop_event: threading.Event, session_id: str = None, is_resume: bool = False):
+    """별도 스레드에서 Claude CLI 스트리밍 실행 (프린트 모드, stdin 방식, 세션 유지)"""
     process = None
     try:
-        cmd = 'claude --output-format stream-json --verbose --dangerously-skip-permissions -p -'
+        cmd = 'claude --output-format stream-json --verbose --dangerously-skip-permissions'
+        if session_id:
+            if is_resume:
+                # 기존 세션 재개
+                cmd += f' -r "{session_id}"'
+                print(f"[DEBUG] 세션 재개 모드: {session_id}")
+            else:
+                # 새 세션 시작
+                cmd += f' --session-id "{session_id}"'
+                print(f"[DEBUG] 새 세션 시작: {session_id}")
+        cmd += ' -p -'
         print(f"[DEBUG] run_claude_stream 시작")
         print(f"[실행 명령] {cmd}")
         print(f"[stdin 입력] {prompt}")
@@ -154,6 +165,8 @@ class ChatBot:
         self.reconnect_attempts = 0
         self.claude_processing = False
         self.current_stop_event = None
+        self.session_id = str(uuid.uuid4())  # 세션 ID 생성
+        self.session_started = False  # 세션 시작 여부
 
     def on_broadcast(self, payload):
         """수신된 메시지 출력 및 Claude 전달"""
@@ -205,10 +218,11 @@ class ChatBot:
             prompt = f"[{sender}]: {message}"
             output_queue = Queue()
 
-            # 별도 스레드에서 Claude 실행
+            # 별도 스레드에서 Claude 실행 (세션 ID 전달)
+            # 첫 요청: --session-id로 새 세션 생성, 이후: -r로 기존 세션 재개
             thread = threading.Thread(
                 target=run_claude_stream,
-                args=(prompt, output_queue, self.current_stop_event)
+                args=(prompt, output_queue, self.current_stop_event, self.session_id, self.session_started)
             )
             thread.start()
 
@@ -385,6 +399,10 @@ class ChatBot:
                 print(f"[DEBUG] 최종 결과 있음, 길이: {len(final_result)}")
                 print(f"[{self.CLAUDE_USERNAME}]: {final_result}")
                 await self.send_claude_response(final_result)
+                # 첫 번째 성공 후 세션 시작됨으로 표시
+                if not self.session_started:
+                    self.session_started = True
+                    print(f"[DEBUG] 세션 시작됨: {self.session_id}")
             elif self.should_run:
                 print("[DEBUG] 최종 결과 없음")
                 print("[Claude 오류]: 응답 없음")
@@ -513,6 +531,7 @@ async def main():
 
     print("-" * 40)
     print("Claude가 준비되었습니다.")
+    print(f"세션 ID: {bot.session_id}")
     print("다른 사용자의 메시지에 자동 응답합니다.")
     print("'quit' 입력 시 종료")
     print("-" * 40)
