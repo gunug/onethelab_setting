@@ -17,11 +17,14 @@ DB 없이 Broadcast 기능만 사용하여 WebSocket 통신 구현.
 
 ```
 project_docs/
-  install_list.md    # 설치 절차 체크리스트
-supabase/            # Supabase 프로젝트 설정
-chat_bot/           # Python 채팅봇 클라이언트
-chat_client/        # HTML/JS 웹 채팅 클라이언트
-run_chat_bot.bat     # Python 채팅봇 실행 스크립트
+  install_list.md        # 설치 절차 체크리스트
+  python_chat_bot.md     # Python 채팅봇 문서
+  html_chat_client.md    # HTML 클라이언트 문서
+  claude_code_tools.md   # Claude Code 도구 목록 및 구현 상태
+supabase/                # Supabase 프로젝트 설정
+chat_bot/               # Python 채팅봇 클라이언트
+chat_client/            # HTML/JS 웹 채팅 클라이언트
+run_chat_bot.bat         # Python 채팅봇 실행 스크립트
 ```
 
 ## Supabase 연결 정보
@@ -45,6 +48,10 @@ supabase projects api-keys --project-ref bgnhocgfbtnxosrjcxog  # API 키 확인
 ## HTML/JS 웹 클라이언트
 
 상세 내용: [project_docs/html_chat_client.md](project_docs/html_chat_client.md)
+
+## Claude Code 도구
+
+상세 내용: [project_docs/claude_code_tools.md](project_docs/claude_code_tools.md)
 
 ## 주요 기능
 

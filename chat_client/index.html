@@ -190,6 +190,7 @@
         }
         .progress-step {
             display: flex;
+            flex-wrap: wrap;
             align-items: center;
             gap: 8px;
             padding: 4px 0;
@@ -261,6 +262,8 @@
             font-size: 0.75rem;
             overflow: hidden;
             width: 100%;
+            flex-basis: 100%;
+            margin-left: 24px;
         }
         .edit-diff-header {
             background: #1b263b;
@@ -326,6 +329,8 @@
             font-size: 0.75rem;
             overflow: hidden;
             width: 100%;
+            flex-basis: 100%;
+            margin-left: 24px;
         }
         .write-content-header {
             background: #1b3a4b;
@@ -370,6 +375,8 @@
             font-size: 0.75rem;
             overflow: hidden;
             width: 100%;
+            flex-basis: 100%;
+            margin-left: 24px;
         }
         .todo-list-header {
             background: #2d1b4e;
@@ -446,13 +453,15 @@
             background: #1a1a2e;
             border-left: 3px solid #4ade80;
             padding: 6px 10px;
-            margin: 6px 0 4px 24px;
+            margin: 6px 0 4px 0;
             font-family: 'Consolas', 'Monaco', monospace;
             font-size: 0.75rem;
             color: #4ade80;
             word-break: break-all;
             white-space: pre-wrap;
             border-radius: 0 4px 4px 0;
+            flex-basis: 100%;
+            margin-left: 24px;
         }
 
         /* Permission Request UI */

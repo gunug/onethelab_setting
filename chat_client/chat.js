@@ -539,8 +539,8 @@ class ChatClient {
 
         stepEl.innerHTML = `
             <div class="step-indicator active">${data.turn}</div>
-            <span>${toolIcon} ${data.tool}</span>
-            ${data.tool === 'Bash' ? detailHtml : `<span>${detailHtml}</span>`}
+            <span>${toolIcon} ${data.tool}${data.tool === 'Bash' || data.tool === 'Edit' || data.tool === 'Write' || data.tool === 'TodoWrite' ? '' : detailHtml}</span>
+            ${data.tool === 'Bash' ? detailHtml : ''}
             ${editDiffHtml}
         `;
 
