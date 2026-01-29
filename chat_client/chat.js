@@ -453,7 +453,14 @@ class ChatClient {
         stepEl.dataset.turn = data.turn;
 
         const toolIcon = this.getToolIcon(data.tool);
-        const detail = data.detail ? ` - ${this.escapeHtml(data.detail)}` : '';
+
+        // Bash 명령어는 별도 표시, 나머지는 간략히 표시
+        let detailHtml = '';
+        if (data.tool === 'Bash' && data.detail) {
+            detailHtml = `<div class="bash-command">${this.escapeHtml(data.detail)}</div>`;
+        } else if (data.detail) {
+            detailHtml = ` - ${this.escapeHtml(data.detail)}`;
+        }
 
         let editDiffHtml = '';
         if (data.tool === 'Edit' && data.edit_info) {
@@ -474,7 +481,8 @@ class ChatClient {
 
         stepEl.innerHTML = `
             <div class="step-indicator active">${data.turn}</div>
-            <span>${toolIcon} ${data.tool}${detail}</span>
+            <span>${toolIcon} ${data.tool}</span>
+            ${data.tool === 'Bash' ? detailHtml : `<span>${detailHtml}</span>`}
             ${editDiffHtml}
         `;
 

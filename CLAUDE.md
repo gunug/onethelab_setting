@@ -58,6 +58,7 @@ supabase projects api-keys --project-ref bgnhocgfbtnxosrjcxog  # API 키 확인
   - 모델 정보, 도구 호출 상태, 완료 통계 (시간, 비용, 토큰)
   - 다양한 JSON 형식에 대한 방어적 타입 체크
   - Edit 도구 사용 시 변경 내용 (old_string, new_string) 출력
+  - Bash 도구 사용 시 실행 명령어 표시 (최대 100자, 별도 스타일 블록)
 - 디버깅 로그: [DEBUG] 태그로 Python 콘솔에만 출력 (HTML 미전송)
 - 비용 표시: USD와 원화(KRW) 동시 표시 (환율 상수: 1430원/USD, 2026년 1월 기준)
 - HTML 클라이언트: 진행 상황 UI 표시 (프로그레스 바, 단계별 상태, 통계)

@@ -306,7 +306,7 @@ class ChatBot:
                                         detail = file_path.split("\\")[-1] if file_path else ""
                                     elif tool_name == "Bash":
                                         cmd = tool_input.get("command", "")
-                                        detail = cmd[:30] if cmd else ""
+                                        detail = cmd[:100] if cmd else ""  # Bash 명령어는 더 길게 표시
                                     elif tool_name == "Edit":
                                         file_path = tool_input.get("file_path", "")
                                         detail = file_path.split("\\")[-1] if file_path else ""
