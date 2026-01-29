@@ -534,24 +534,25 @@ async def main():
 
     try:
         while bot.should_run:
+            # 비동기로 큐 체크 (이벤트 루프 블로킹 방지)
             try:
-                message = input_queue.get(timeout=0.5)
-
-                if message is None:
-                    print("[DEBUG] EOF, 루프 탈출")
-                    break
-
-                print(f"[DEBUG] 입력 받음: '{message}'")
-
-                if message.lower() == "quit":
-                    print("[DEBUG] quit 감지, 루프 탈출")
-                    break
-
-                if message.strip():
-                    await bot.send_message(message)
-
+                message = input_queue.get_nowait()
             except Empty:
+                await asyncio.sleep(0.1)  # 이벤트 루프가 다른 작업 처리할 수 있게 함
                 continue
+
+            if message is None:
+                print("[DEBUG] EOF, 루프 탈출")
+                break
+
+            print(f"[DEBUG] 입력 받음: '{message}'")
+
+            if message.lower() == "quit":
+                print("[DEBUG] quit 감지, 루프 탈출")
+                break
+
+            if message.strip():
+                await bot.send_message(message)
 
     except KeyboardInterrupt:
         print("\n종료합니다...")

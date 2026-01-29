@@ -83,3 +83,12 @@ supabase projects api-keys --project-ref bgnhocgfbtnxosrjcxog  # API 키 확인
 - 하트비트: 30초 간격으로 연결 상태 점검
 - 연결 정리: 재연결 전 기존 채널/클라이언트 정리
 - 전송 실패 처리: 메시지 전송 실패 시 시스템 메시지 표시
+
+## 버전 정보
+
+### v1.0 (2026-01-29) - 안정적인 버전 (태그: v1.0)
+- Python 채팅봇 + HTML 클라이언트 실시간 통신 완성
+- Claude CLI 프린트 모드 (`-p -` stdin 방식)
+- 정상 종료 처리 (quit 명령, 별도 입력 스레드 + Queue + asyncio.sleep)
+- 진행 상황 UI, Edit diff 표시, 마크다운 렌더링
+- 커밋: 이 버전 기준으로 안정적 작동 확인됨
