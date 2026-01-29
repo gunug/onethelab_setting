@@ -64,7 +64,8 @@ def run_claude_stream(prompt: str, output_queue: Queue, stop_event: threading.Ev
             stdin=subprocess.PIPE,
             shell=True,
             text=True,
-            encoding="utf-8"
+            encoding="utf-8",
+            bufsize=1
         )
 
         # stderr 읽기 스레드
