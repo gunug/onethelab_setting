@@ -517,45 +517,80 @@ async def main():
     print("'quit' 입력 시 종료")
     print("-" * 40)
 
+    # 입력 처리용 큐와 스레드
+    input_queue = Queue()
+
+    def input_thread():
+        while bot.should_run:
+            try:
+                line = input()
+                input_queue.put(line)
+            except EOFError:
+                input_queue.put(None)
+                break
+
+    input_t = threading.Thread(target=input_thread, daemon=True)
+    input_t.start()
+
     try:
         while bot.should_run:
             try:
-                message = await asyncio.wait_for(
-                    asyncio.get_event_loop().run_in_executor(None, input, ""),
-                    timeout=1.0
-                )
+                message = input_queue.get(timeout=0.5)
+
+                if message is None:
+                    print("[DEBUG] EOF, 루프 탈출")
+                    break
+
+                print(f"[DEBUG] 입력 받음: '{message}'")
 
                 if message.lower() == "quit":
+                    print("[DEBUG] quit 감지, 루프 탈출")
                     break
 
                 if message.strip():
                     await bot.send_message(message)
 
-            except asyncio.TimeoutError:
+            except Empty:
                 continue
-            except EOFError:
-                break
 
     except KeyboardInterrupt:
         print("\n종료합니다...")
     finally:
+        print("[DEBUG] finally 블록 진입")
         await bot.disconnect()
+        print("프로그램을 종료합니다.")
+        os._exit(0)
 
 
 if __name__ == "__main__":
     import logging
     import warnings
+    from concurrent.futures import ThreadPoolExecutor
+    import atexit
+
     logging.disable(logging.CRITICAL)
     warnings.filterwarnings("ignore", category=DeprecationWarning)
 
+    # 명시적 ThreadPoolExecutor 생성
+    executor = ThreadPoolExecutor(max_workers=4)
+
+    def cleanup_executor():
+        executor.shutdown(wait=False, cancel_futures=True)
+
+    atexit.register(cleanup_executor)
+
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
+    loop.set_default_executor(executor)
 
     try:
         loop.run_until_complete(main())
     except KeyboardInterrupt:
         pass
     finally:
+        # executor 즉시 종료
+        executor.shutdown(wait=False, cancel_futures=True)
+
         try:
             # 모든 태스크 정리
             pending = asyncio.all_tasks(loop)

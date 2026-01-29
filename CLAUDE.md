@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **각각의 수정사항의 마지막에 반드시 CLAUDE.md 파일을 업데이트할 것.**
 
-**매 수정 다음에는 자동으로 git에 커밋할 것. GitHub에는 push하지 말 것.**
+**기능이 완성되면 git에 커밋할 것. 오류가 있거나 디버깅 중일 때는 커밋하지 말 것. GitHub에는 push하지 말 것.**
 
 ## Project Overview
 
