@@ -144,12 +144,18 @@ HTML 클라이언트 (Railway 배포) ←→ Supabase Realtime ←→ Python 봇
 
 ## 버전 정보
 
-### v2.1 (2026-01-30) - Private Channel + RLS (테스트 중)
+### v2.2 (2026-01-30) - Railway 배포 (태그: v2.2)
+- **Railway 배포**: HTML 클라이언트를 Railway에 정적 파일로 배포
+- **배포 URL**: https://onethelabsetting-production.up.railway.app
+- **Dockerfile**: nginx:alpine 기반 정적 파일 서버
+- **Realtime 인증 수정**: `setAuth()` 호출로 Private Channel 인증 토큰 전달
+- **config.js Git 추가**: Supabase ANON_KEY 포함 (RLS로 보호됨)
+
+### v2.1 (2026-01-30) - Private Channel + RLS
 - **Private Channel**: Supabase Realtime Private Channel 적용
 - **RLS 정책**: realtime.messages 테이블에 인증된 사용자만 접근 가능
 - **Python 봇 인증**: 봇 전용 계정으로 Supabase Auth 로그인
 - **보안 강화**: ANON_KEY만으로는 채널 접속 불가 (서버 측 RLS 적용)
-- **테스트 필요**: Private Channel 접속 및 메시지 송수신 확인
 
 ### v2.0 (2026-01-30) - Supabase Auth + MFA
 - **Supabase Auth 통합**: 기존 자체 OTP 시스템을 Supabase Auth로 교체
