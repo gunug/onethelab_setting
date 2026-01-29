@@ -322,6 +322,20 @@ class ChatBot:
                                             print(f"  - 파일: {detail}")
                                             print(f"  - 이전: {old_string[:100]}..." if len(old_string) > 100 else f"  - 이전: {old_string}")
                                             print(f"  - 이후: {new_string[:100]}..." if len(new_string) > 100 else f"  - 이후: {new_string}")
+                                    elif tool_name == "Write":
+                                        file_path = tool_input.get("file_path", "")
+                                        detail = file_path.split("\\")[-1] if file_path else ""
+                                        content = tool_input.get("content", "")
+                                        if content:
+                                            # Write 정보를 edit_info와 동일한 형태로 전송 (write_info 키 사용)
+                                            edit_info = {
+                                                "type": "write",
+                                                "file": detail,
+                                                "content": content[:500] if content else ""
+                                            }
+                                            print(f"[Claude] [{current_turn}] Write 파일 생성:")
+                                            print(f"  - 파일: {detail}")
+                                            print(f"  - 내용: {content[:100]}..." if len(content) > 100 else f"  - 내용: {content}")
                                     elif tool_name == "Grep":
                                         detail = tool_input.get("pattern", "") or ""
 

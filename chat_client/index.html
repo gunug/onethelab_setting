@@ -317,6 +317,51 @@
             margin-bottom: 2px;
         }
 
+        /* Write Content UI */
+        .write-content {
+            background: #0d1b2a;
+            border-radius: 6px;
+            margin: 8px 0 4px 0;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.75rem;
+            overflow: hidden;
+            width: 100%;
+        }
+        .write-content-header {
+            background: #1b3a4b;
+            padding: 6px 10px;
+            color: #888;
+            font-size: 0.7rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .write-content-toggle {
+            cursor: pointer;
+            color: #60a5fa;
+            font-size: 0.7rem;
+        }
+        .write-content-toggle:hover {
+            text-decoration: underline;
+        }
+        .write-content-body {
+            max-height: 200px;
+            overflow-y: auto;
+            background: rgba(96, 165, 250, 0.05);
+            border-left: 3px solid #60a5fa;
+        }
+        .write-content-body.collapsed {
+            max-height: 0;
+            overflow: hidden;
+        }
+        .write-content-body pre {
+            padding: 8px 10px;
+            margin: 0;
+            white-space: pre-wrap;
+            word-break: break-all;
+            color: #93c5fd;
+        }
+
         /* Bash 명령어 표시 */
         .bash-command {
             display: block;

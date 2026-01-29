@@ -58,11 +58,13 @@ supabase projects api-keys --project-ref bgnhocgfbtnxosrjcxog  # API 키 확인
   - 모델 정보, 도구 호출 상태, 완료 통계 (시간, 비용, 토큰)
   - 다양한 JSON 형식에 대한 방어적 타입 체크
   - Edit 도구 사용 시 변경 내용 (old_string, new_string) 출력
+  - Write 도구 사용 시 파일 내용 표시 (최대 500자, 접기/펼치기 지원)
   - Bash 도구 사용 시 실행 명령어 표시 (최대 100자, 별도 스타일 블록)
 - 디버깅 로그: [DEBUG] 태그로 Python 콘솔에만 출력 (HTML 미전송)
 - 비용 표시: USD와 원화(KRW) 동시 표시 (환율 상수: 1430원/USD, 2026년 1월 기준)
 - HTML 클라이언트: 진행 상황 UI 표시 (프로그레스 바, 단계별 상태, 통계)
 - HTML 클라이언트: Edit diff UI (변경 전/후 비교, 접기/펼치기 지원)
+- HTML 클라이언트: Write content UI (파일 내용 표시, 접기/펼치기 지원)
 - HTML 클라이언트: 모든 메시지에 마크다운 렌더링 적용 (marked.js 사용, Claude뿐 아니라 모든 발신자)
 - HTML 클라이언트: 헤더 화면 상단 고정 (한 줄 레이아웃, flexbox 다단 배치), 채팅 입력창 화면 하단 고정 (position: fixed)
 - HTML 클라이언트: 자동 스크롤 체크박스 (켜면 항상 최신 메시지로 스크롤, 끄면 스크롤 유지, requestAnimationFrame으로 렌더링 후 스크롤)
@@ -83,9 +85,10 @@ supabase projects api-keys --project-ref bgnhocgfbtnxosrjcxog  # API 키 확인
 - 자동 재연결: 연결 끊김 시 지수 백오프로 재연결 (최대 10회)
 - 네트워크 감지: online/offline 이벤트로 네트워크 상태 감지
 - 페이지 가시성 감지: 탭 전환 시 연결 상태 확인
-- 하트비트: 30초 간격으로 연결 상태 점검
+- 하트비트: 30초 간격으로 연결 상태 점검 (연결 중 상태 체크하여 중복 방지)
 - 연결 정리: 재연결 전 기존 채널/클라이언트 정리
 - 전송 실패 처리: 메시지 전송 실패 시 시스템 메시지 표시
+- 첫 연결/재연결 구분: 입장 메시지는 첫 연결 시에만, 재연결 시 "다시 연결되었습니다" 표시
 
 ## 버전 정보
 

@@ -17,6 +17,7 @@ class ChatClient {
         this.reconnectTimer = null;
         this.heartbeatTimer = null;
         this.isConnecting = false;
+        this.hasConnectedOnce = false;  // 첫 연결 여부
         this.init();
     }
 
@@ -150,7 +151,15 @@ class ChatClient {
                         console.log('채널 연결 성공');
                         this.reconnectAttempts = 0;
                         this.updateStatus(`연결됨 - ${this.username}`, true);
-                        this.addSystemMessage(`${this.username}님이 입장했습니다.`);
+
+                        // 첫 연결과 재연결 구분
+                        if (!this.hasConnectedOnce) {
+                            this.hasConnectedOnce = true;
+                            this.addSystemMessage(`${this.username}님이 입장했습니다.`);
+                        } else {
+                            this.addSystemMessage('다시 연결되었습니다.');
+                        }
+
                         this.startHeartbeat();
                     } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
                         console.log('채널 연결 실패/종료:', status, err);
@@ -232,6 +241,12 @@ class ChatClient {
     }
 
     checkConnection() {
+        // 연결 중이면 무시
+        if (this.isConnecting) {
+            console.log('연결 상태 확인: 이미 연결 시도 중');
+            return;
+        }
+
         // 연결 상태 확인 및 필요시 재연결
         if (!this.channel || !this.supabase) {
             console.log('연결 상태 확인: 연결되지 않음, 재연결 시도');
@@ -463,7 +478,8 @@ class ChatClient {
         }
 
         let editDiffHtml = '';
-        if (data.tool === 'Edit' && data.edit_info) {
+        if (data.tool === 'Edit' && data.edit_info && !data.edit_info.type) {
+            // Edit 도구: 변경 전/후 비교
             const editId = `edit-diff-${data.turn}`;
             editDiffHtml = `
                 <div class="edit-diff" id="${editId}">
@@ -474,6 +490,20 @@ class ChatClient {
                     <div class="edit-diff-content">
                         <div class="diff-old">${this.escapeHtml(data.edit_info.old || '(없음)')}</div>
                         <div class="diff-new">${this.escapeHtml(data.edit_info.new || '(없음)')}</div>
+                    </div>
+                </div>
+            `;
+        } else if (data.tool === 'Write' && data.edit_info && data.edit_info.type === 'write') {
+            // Write 도구: 파일 내용 표시
+            const writeId = `write-content-${data.turn}`;
+            editDiffHtml = `
+                <div class="write-content" id="${writeId}">
+                    <div class="write-content-header">
+                        <span>파일 내용</span>
+                        <span class="write-content-toggle" onclick="toggleWriteContent('${writeId}')">접기</span>
+                    </div>
+                    <div class="write-content-body">
+                        <pre>${this.escapeHtml(data.edit_info.content || '(없음)')}</pre>
                     </div>
                 </div>
             `;
@@ -681,6 +711,23 @@ function toggleEditDiff(editId) {
 
     const content = editEl.querySelector('.edit-diff-content');
     const toggle = editEl.querySelector('.edit-diff-toggle');
+
+    if (content.classList.contains('collapsed')) {
+        content.classList.remove('collapsed');
+        toggle.textContent = '접기';
+    } else {
+        content.classList.add('collapsed');
+        toggle.textContent = '펼치기';
+    }
+}
+
+// Write content 접기/펼치기
+function toggleWriteContent(writeId) {
+    const writeEl = document.getElementById(writeId);
+    if (!writeEl) return;
+
+    const content = writeEl.querySelector('.write-content-body');
+    const toggle = writeEl.querySelector('.write-content-toggle');
 
     if (content.classList.contains('collapsed')) {
         content.classList.remove('collapsed');
