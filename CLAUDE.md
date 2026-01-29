@@ -34,6 +34,7 @@ project_docs/
   python_chat_bot.md     # Python 채팅봇 문서
   html_chat_client.md    # HTML 클라이언트 문서
   claude_code_tools.md   # Claude Code 도구 목록 및 구현 상태
+  security_risks.md      # 보안 위험 분석 문서
   todo.md                # 할 일 목록
 supabase/                # Supabase 프로젝트 설정
 chat_bot/               # Python 채팅봇 클라이언트
@@ -53,6 +54,10 @@ README.md                # 프로젝트 소개 문서
 ## Claude Code 도구
 
 상세 내용: [project_docs/claude_code_tools.md](project_docs/claude_code_tools.md)
+
+## 보안 위험 분석
+
+상세 내용: [project_docs/security_risks.md](project_docs/security_risks.md)
 
 ## 주요 기능
 
@@ -91,11 +96,14 @@ README.md                # 프로젝트 소개 문서
   - 접속 시 자동 조회: HTML 클라이언트 접속 시 request_usage 이벤트로 사용량 요청
   - 반응형 레이아웃: 좁은 화면에서 자동 줄바꿈 (flex-wrap)
   - 사용량 제한 정보 패널: ⓘ 아이콘 클릭 시 플랜별 예상 사용량, 5시간 롤링 윈도우, 주간 제한 정보 표시 (토글)
-- OTP 인증 (TOTP): Google Authenticator 호환
-  - Python 봇: pyotp 라이브러리로 OTP 검증, 세션 토큰 발급 (1시간 유효)
-  - HTML 클라이언트: OTP 입력 화면, 인증 토큰 localStorage 저장
-  - 설정 스크립트: `chat_bot/setup_otp.py`로 비밀키 생성 및 QR 코드 생성
-  - TOTP_SECRET_KEY 미설정 시 인증 없이 통과 (기존 동작 유지)
+- Supabase Auth + MFA (TOTP): 이메일/비밀번호 인증 + 2단계 인증
+  - HTML 클라이언트: Supabase Auth 로그인 (이메일/비밀번호)
+  - HTML 클라이언트: MFA 인증 화면 (TOTP 검증)
+  - HTML 클라이언트: TOTP 등록 화면 (QR 코드 표시, 최초 설정)
+  - HTML 클라이언트: 로그아웃 시 페이지 새로고침 (상태 완전 초기화)
+  - Python 봇: JWT 토큰 검증 (ES256 + JWKS, PyJWT + cryptography 사용)
+  - JWKS 엔드포인트에서 공개키 자동 다운로드 (`{SUPABASE_URL}/auth/v1/.well-known/jwks.json`)
+  - SUPABASE_URL 미설정 시 인증 없이 통과 (기존 동작 유지)
 
 ## 안정성 기능
 
@@ -107,26 +115,36 @@ README.md                # 프로젝트 소개 문서
 - 연결 상태 관리: `is_connected` 플래그로 연결 상태 추적
 - 예외 처리 강화: stdin/stdout 오류, 프로세스 종료 등 다양한 상황 처리
 - 세션 유지: 봇 시작 시 UUID 생성하여 동일 세션으로 대화 컨텍스트 유지
-- OTP 인증: TOTP 기반 인증, 인증된 세션만 Claude 요청 처리
+- JWT 인증: Supabase JWT 토큰 검증 (ES256 + JWKS), 인증된 사용자만 Claude 요청 처리
 
 ### HTML 클라이언트
 - 자동 재연결: 연결 끊김 시 지수 백오프로 재연결 (최대 10회)
 - 네트워크 감지: online/offline 이벤트로 네트워크 상태 감지
 - 페이지 가시성 감지: 탭 전환 시 연결 상태 확인
 - 하트비트: 30초 간격으로 연결 상태 점검 (연결 중 상태 체크하여 중복 방지)
-- 연결 정리: 재연결 전 기존 채널/클라이언트 정리
+- 연결 정리: 재연결 전 기존 채널 완전 제거 (`removeChannel()`)
 - 전송 실패 처리: 메시지 전송 실패 시 시스템 메시지 표시
 - 첫 연결/재연결 구분: 입장 메시지는 첫 연결 시에만, 재연결 시 "다시 연결되었습니다" 표시
-- OTP 인증: 인증 필요 시 OTP 입력 화면 표시, 토큰 localStorage 저장
+- 중복 SUBSCRIBED 방지: `subscribedHandled` 플래그로 중복 이벤트 무시
+- Supabase Auth: 이메일/비밀번호 로그인, MFA 인증, TOTP 등록
+- 로그아웃: 페이지 새로고침으로 모든 상태 완전 초기화
 
 ## 버전 정보
 
-### v1.2 (2026-01-30) - OTP 인증 기능 추가
-- OTP 인증: Google Authenticator 호환 TOTP 인증
-- Python 봇: pyotp로 OTP 검증, 세션 토큰 발급 (1시간 유효)
-- HTML 클라이언트: OTP 입력 화면, 인증 토큰 localStorage 저장
-- 설정 도구: `chat_bot/setup_otp.py`로 비밀키 및 QR 코드 생성
-- 하위 호환: TOTP_SECRET_KEY 미설정 시 기존 동작 유지
+### v2.0 (2026-01-30) - Supabase Auth + MFA (테스트 중)
+- **Supabase Auth 통합**: 기존 자체 OTP 시스템을 Supabase Auth로 교체
+- **이메일/비밀번호 로그인**: Supabase Auth signInWithPassword
+- **MFA 지원**: Supabase MFA API로 TOTP 2단계 인증 (AAL1 → AAL2)
+- **TOTP 등록 화면**: 새 사용자를 위한 QR 코드 기반 TOTP 등록
+- **JWT 토큰 검증**: ES256 + JWKS (Supabase 클라우드 호환)
+- **JWKS 자동 다운로드**: `{SUPABASE_URL}/auth/v1/.well-known/jwks.json`
+- **로그아웃 버그 수정**: 페이지 새로고침으로 상태 완전 초기화
+- **중복 연결 메시지 방지**: `subscribedHandled` 플래그 추가
+- **테스트 완료**: 로그인 → TOTP 등록 → MFA 인증 → 채팅 화면 진입
+- **테스트 필요**: 채팅 메시지 전송 및 Claude 응답 확인
+
+### v1.3 (2026-01-30) - OTP 인증 강화 (deprecated)
+- 자체 OTP 시스템 (v2.0에서 Supabase Auth로 대체됨)
 
 ### v1.1 (2026-01-30) - 세션 클리어 기능 추가 (태그: v1.1)
 - 세션 클리어 기능: /clear 명령어로 Claude 세션 초기화

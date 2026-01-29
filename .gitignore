@@ -4,6 +4,9 @@ supabase/.temp/
 # Claude
 .claude/settings.local.json
 
+# OTP (sensitive - contains secret key)
+chat_bot/otp_qrcode.png
+
 # Python
 __pycache__/
 *.py[cod]

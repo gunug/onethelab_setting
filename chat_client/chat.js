@@ -10,7 +10,8 @@ class ChatClient {
     constructor() {
         this.supabase = null;
         this.channel = null;
-        this.username = '';
+        this.user = null;  // Supabase Auth 사용자 정보
+        this.username = '';  // 표시용 이름 (이메일 또는 메타데이터)
         this.currentProgress = null;
         this.pendingPermissions = {};  // request_id -> element
         this.reconnectAttempts = 0;
@@ -18,63 +19,88 @@ class ChatClient {
         this.heartbeatTimer = null;
         this.isConnecting = false;
         this.hasConnectedOnce = false;  // 첫 연결 여부
+        this.subscribedHandled = false;  // 현재 연결의 SUBSCRIBED 처리 여부
         this.queueElement = null;  // 대기열 UI 요소
         this.queueCollapsed = false;  // 대기열 접힘 상태
         this.previousQueueCount = 0;  // 이전 대기열 수 (완료 알림용)
         this.queueSoundEnabled = localStorage.getItem('queue_sound') !== 'false';  // 소리 알림 설정
-        // OTP 인증 관련
-        this.authToken = localStorage.getItem('auth_token') || null;
-        this.authExpires = parseInt(localStorage.getItem('auth_expires') || '0', 10);
-        this.otpRequired = false;  // OTP 인증 필요 여부 (서버에서 결정)
+        // MFA 관련
+        this.mfaFactorId = null;  // MFA factor ID (challenge/verify에 필요)
         this.init();
     }
 
     init() {
+        // Supabase 클라이언트 초기화
+        this.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
         // DOM 요소
         this.loginScreen = document.getElementById('loginScreen');
         this.chatScreen = document.getElementById('chatScreen');
-        this.otpScreen = document.getElementById('otpScreen');
-        this.usernameInput = document.getElementById('usernameInput');
-        this.joinBtn = document.getElementById('joinBtn');
+        this.mfaScreen = document.getElementById('mfaScreen');
+        this.totpEnrollScreen = document.getElementById('totpEnrollScreen');
+
+        // 로그인 관련 DOM
+        this.emailInput = document.getElementById('emailInput');
+        this.passwordInput = document.getElementById('passwordInput');
+        this.loginBtn = document.getElementById('loginBtn');
+        this.loginError = document.getElementById('loginError');
+
+        // MFA 인증 관련 DOM
+        this.mfaInput = document.getElementById('mfaInput');
+        this.mfaVerifyBtn = document.getElementById('mfaVerifyBtn');
+        this.mfaError = document.getElementById('mfaError');
+
+        // TOTP 등록 관련 DOM
+        this.totpQrCode = document.getElementById('totpQrCode');
+        this.totpSecret = document.getElementById('totpSecret');
+        this.totpEnrollInput = document.getElementById('totpEnrollInput');
+        this.totpEnrollBtn = document.getElementById('totpEnrollBtn');
+        this.totpEnrollError = document.getElementById('totpEnrollError');
+
+        // 채팅 관련 DOM
         this.messageInput = document.getElementById('messageInput');
         this.sendBtn = document.getElementById('sendBtn');
         this.chatContainer = document.getElementById('chatContainer');
         this.statusEl = document.getElementById('status');
-        this.changeNameBtn = document.getElementById('changeNameBtn');
+        this.logoutBtn = document.getElementById('logoutBtn');
         this.clearSessionBtn = document.getElementById('clearSessionBtn');
         this.autoScrollCheckbox = document.getElementById('autoScrollCheckbox');
         this.queueSoundCheckbox = document.getElementById('queueSoundCheckbox');
-        // OTP 관련 DOM 요소
-        this.otpInput = document.getElementById('otpInput');
-        this.otpVerifyBtn = document.getElementById('otpVerifyBtn');
-        this.otpError = document.getElementById('otpError');
-        this.otpInfo = document.getElementById('otpInfo');
 
-        // 이벤트 바인딩
-        this.joinBtn.addEventListener('click', () => this.join());
-        this.usernameInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.join();
+        // 로그인 이벤트
+        this.loginBtn.addEventListener('click', () => this.login());
+        this.emailInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.passwordInput.focus();
         });
+        this.passwordInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.login();
+        });
+
+        // MFA 인증 이벤트
+        this.mfaVerifyBtn.addEventListener('click', () => this.verifyMfa());
+        this.mfaInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.verifyMfa();
+        });
+        this.mfaInput.addEventListener('input', (e) => {
+            e.target.value = e.target.value.replace(/[^0-9]/g, '');
+        });
+
+        // TOTP 등록 이벤트
+        this.totpEnrollBtn.addEventListener('click', () => this.verifyTotpEnroll());
+        this.totpEnrollInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.verifyTotpEnroll();
+        });
+        this.totpEnrollInput.addEventListener('input', (e) => {
+            e.target.value = e.target.value.replace(/[^0-9]/g, '');
+        });
+
+        // 채팅 이벤트
         this.sendBtn.addEventListener('click', () => this.sendMessage());
         this.messageInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.sendMessage();
         });
-        this.changeNameBtn.addEventListener('click', () => this.changeName());
+        this.logoutBtn.addEventListener('click', () => this.logout());
         this.clearSessionBtn.addEventListener('click', () => this.clearSession());
-
-        // OTP 이벤트 바인딩
-        if (this.otpVerifyBtn) {
-            this.otpVerifyBtn.addEventListener('click', () => this.verifyOtp());
-        }
-        if (this.otpInput) {
-            this.otpInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') this.verifyOtp();
-            });
-            // 숫자만 입력 허용
-            this.otpInput.addEventListener('input', (e) => {
-                e.target.value = e.target.value.replace(/[^0-9]/g, '');
-            });
-        }
 
         // 소리 알림 체크박스 이벤트
         if (this.queueSoundCheckbox) {
@@ -87,7 +113,7 @@ class ChatClient {
 
         // 페이지 가시성 변경 감지 (탭 전환 시 재연결)
         document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible' && this.username) {
+            if (document.visibilityState === 'visible' && this.user) {
                 this.checkConnection();
             }
         });
@@ -95,7 +121,7 @@ class ChatClient {
         // 온라인/오프라인 감지
         window.addEventListener('online', () => {
             console.log('네트워크 연결됨');
-            if (this.username) {
+            if (this.user) {
                 this.reconnect();
             }
         });
@@ -105,145 +131,332 @@ class ChatClient {
             this.updateStatus('오프라인', false);
         });
 
-        // localStorage에서 저장된 이름 확인 후 자동 로그인
-        this.checkSavedUsername();
-
         // 큐 UI 초기화
         this.initQueueUI();
 
         // 사용량 정보 패널 초기화
         this.initUsageInfoPanel();
+
+        // 기존 세션 확인
+        this.checkExistingSession();
     }
 
-    checkSavedUsername() {
-        const savedUsername = localStorage.getItem('chat_username');
-        if (savedUsername) {
-            this.username = savedUsername;
-            // 인증 토큰 유효성 확인
-            if (this.isAuthValid()) {
-                // 토큰 유효: 바로 채팅 화면으로
-                this.loginScreen.classList.add('hidden');
-                this.chatScreen.classList.remove('hidden');
-                this.connect();
-            } else {
-                // 토큰 만료/없음: 연결 후 OTP 필요 여부 확인
-                this.loginScreen.classList.add('hidden');
-                this.chatScreen.classList.remove('hidden');
-                this.connect();
-            }
+    async checkExistingSession() {
+        // 기존 로그인 세션 확인
+        const { data: { session }, error } = await this.supabase.auth.getSession();
+
+        if (session && session.user) {
+            this.user = session.user;
+            this.username = this.user.email || 'User';
+
+            // MFA 상태 확인
+            await this.checkMfaStatus();
         }
     }
 
-    isAuthValid() {
-        // 인증 토큰 유효성 확인
-        if (!this.authToken) return false;
-        if (Date.now() > this.authExpires) {
-            // 만료됨
-            this.clearAuthToken();
-            return false;
-        }
-        return true;
-    }
+    async login() {
+        const email = this.emailInput.value.trim();
+        const password = this.passwordInput.value;
 
-    clearAuthToken() {
-        this.authToken = null;
-        this.authExpires = 0;
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('auth_expires');
-    }
-
-    saveAuthToken(token, expiresIn) {
-        this.authToken = token;
-        this.authExpires = Date.now() + (expiresIn * 1000);
-        localStorage.setItem('auth_token', token);
-        localStorage.setItem('auth_expires', this.authExpires.toString());
-    }
-
-    showOtpScreen() {
-        this.loginScreen.classList.add('hidden');
-        this.chatScreen.classList.add('hidden');
-        this.otpScreen.classList.remove('hidden');
-        this.otpInput.value = '';
-        this.otpError.classList.add('hidden');
-        this.otpInput.focus();
-    }
-
-    async verifyOtp() {
-        const otpCode = this.otpInput.value.trim();
-        if (otpCode.length !== 6) {
-            this.otpError.textContent = '6자리 코드를 입력하세요.';
-            this.otpError.classList.remove('hidden');
+        if (!email || !password) {
+            this.showLoginError('이메일과 비밀번호를 입력하세요.');
             return;
         }
 
-        this.otpVerifyBtn.disabled = true;
-        this.otpVerifyBtn.textContent = '인증 중...';
-        this.otpError.classList.add('hidden');
+        this.loginBtn.disabled = true;
+        this.loginBtn.textContent = '로그인 중...';
+        this.hideLoginError();
 
         try {
-            await this.channel.send({
-                type: 'broadcast',
-                event: 'otp_verify',
-                payload: {
-                    username: this.username,
-                    otp_code: otpCode
-                }
+            const { data, error } = await this.supabase.auth.signInWithPassword({
+                email,
+                password
             });
-            // 결과는 otp_result 이벤트로 수신
-        } catch (error) {
-            console.error('OTP 인증 요청 실패:', error);
-            this.otpError.textContent = '인증 요청 실패. 다시 시도하세요.';
-            this.otpError.classList.remove('hidden');
-            this.otpVerifyBtn.disabled = false;
-            this.otpVerifyBtn.textContent = '인증하기';
-        }
-    }
 
-    onOtpResult(data) {
-        const { username, success, token, expires_in } = data;
-        if (username !== this.username) return;
-
-        this.otpVerifyBtn.disabled = false;
-        this.otpVerifyBtn.textContent = '인증하기';
-
-        if (success) {
-            // 인증 성공
-            this.saveAuthToken(token, expires_in);
-            this.otpRequired = false;
-            this.otpScreen.classList.add('hidden');
-            this.chatScreen.classList.remove('hidden');
-            this.addSystemMessage('OTP 인증 성공! 채팅을 시작하세요.');
-            // 사용량 조회 요청
-            this.requestUsageStatus();
-        } else {
-            // 인증 실패
-            this.otpError.textContent = '인증 코드가 올바르지 않습니다. 다시 시도하세요.';
-            this.otpError.classList.remove('hidden');
-            this.otpInput.value = '';
-            this.otpInput.focus();
-        }
-    }
-
-    onAuthRequired(data) {
-        const { username, message } = data;
-        if (username !== this.username) return;
-
-        console.log('인증 필요:', message);
-        this.otpRequired = true;
-        this.showOtpScreen();
-    }
-
-    changeName() {
-        const newName = prompt('새 사용자 이름을 입력하세요:', this.username);
-        if (newName && newName.trim()) {
-            const trimmedName = newName.trim();
-            if (trimmedName !== this.username) {
-                const oldName = this.username;
-                this.username = trimmedName;
-                localStorage.setItem('chat_username', trimmedName);
-                this.updateStatus(`연결됨 - ${this.username}`, true);
-                this.addSystemMessage(`${oldName}님이 ${this.username}(으)로 이름을 변경했습니다.`);
+            if (error) {
+                throw error;
             }
+
+            this.user = data.user;
+            this.username = this.user.email || 'User';
+
+            // MFA 상태 확인
+            await this.checkMfaStatus();
+
+        } catch (error) {
+            console.error('로그인 오류:', error);
+            this.showLoginError(error.message || '로그인에 실패했습니다.');
+            this.loginBtn.disabled = false;
+            this.loginBtn.textContent = '로그인';
+        }
+    }
+
+    async checkMfaStatus() {
+        try {
+            const { data, error } = await this.supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+
+            if (error) {
+                console.error('MFA 상태 확인 오류:', error);
+                // MFA 없이 진행
+                this.proceedToChat();
+                return;
+            }
+
+            console.log('MFA 상태:', data);
+
+            const { currentLevel, nextLevel, currentAuthenticationMethods } = data;
+
+            if (nextLevel === 'aal2' && currentLevel === 'aal1') {
+                // MFA가 설정되어 있고 인증 필요
+                // factor ID 가져오기
+                const { data: factorsData, error: factorsError } = await this.supabase.auth.mfa.listFactors();
+
+                if (factorsError) {
+                    console.error('MFA factor 목록 오류:', factorsError);
+                    this.proceedToChat();
+                    return;
+                }
+
+                const totpFactors = factorsData.totp || [];
+                if (totpFactors.length > 0) {
+                    // 검증된(verified) factor 찾기
+                    const verifiedFactor = totpFactors.find(f => f.status === 'verified');
+                    if (verifiedFactor) {
+                        this.mfaFactorId = verifiedFactor.id;
+                        this.showMfaScreen();
+                        return;
+                    }
+                }
+
+                // 검증된 factor가 없으면 등록 필요
+                await this.startTotpEnroll();
+
+            } else if (currentLevel === 'aal2') {
+                // 이미 MFA 인증 완료
+                this.proceedToChat();
+
+            } else {
+                // MFA 미설정 - 등록 화면으로 이동 (선택적으로 스킵 가능)
+                // 여기서는 MFA 등록을 필수로 설정
+                await this.startTotpEnroll();
+            }
+
+        } catch (error) {
+            console.error('MFA 상태 확인 중 오류:', error);
+            this.proceedToChat();
+        }
+    }
+
+    async startTotpEnroll() {
+        try {
+            const { data, error } = await this.supabase.auth.mfa.enroll({
+                factorType: 'totp',
+                friendlyName: 'Authenticator App'
+            });
+
+            if (error) {
+                throw error;
+            }
+
+            console.log('TOTP 등록 데이터:', data);
+
+            // QR 코드 및 비밀키 표시
+            this.mfaFactorId = data.id;
+            this.totpQrCode.src = data.totp.qr_code;
+            this.totpSecret.textContent = data.totp.secret;
+
+            this.showTotpEnrollScreen();
+
+        } catch (error) {
+            console.error('TOTP 등록 시작 오류:', error);
+            this.showLoginError('2단계 인증 설정 중 오류가 발생했습니다.');
+            // 오류 시 로그인 화면으로
+            this.showLoginScreen();
+        }
+    }
+
+    async verifyTotpEnroll() {
+        const code = this.totpEnrollInput.value.trim();
+
+        if (code.length !== 6) {
+            this.showTotpEnrollError('6자리 코드를 입력하세요.');
+            return;
+        }
+
+        this.totpEnrollBtn.disabled = true;
+        this.totpEnrollBtn.textContent = '확인 중...';
+        this.hideTotpEnrollError();
+
+        try {
+            // Challenge 생성
+            const { data: challengeData, error: challengeError } = await this.supabase.auth.mfa.challenge({
+                factorId: this.mfaFactorId
+            });
+
+            if (challengeError) {
+                throw challengeError;
+            }
+
+            // Verify
+            const { data, error } = await this.supabase.auth.mfa.verify({
+                factorId: this.mfaFactorId,
+                challengeId: challengeData.id,
+                code
+            });
+
+            if (error) {
+                throw error;
+            }
+
+            console.log('TOTP 등록 완료:', data);
+            this.proceedToChat();
+
+        } catch (error) {
+            console.error('TOTP 등록 인증 오류:', error);
+            this.showTotpEnrollError('인증 코드가 올바르지 않습니다.');
+            this.totpEnrollInput.value = '';
+            this.totpEnrollInput.focus();
+        } finally {
+            this.totpEnrollBtn.disabled = false;
+            this.totpEnrollBtn.textContent = '등록 완료';
+        }
+    }
+
+    showMfaScreen() {
+        this.loginScreen.classList.add('hidden');
+        this.chatScreen.classList.add('hidden');
+        this.totpEnrollScreen.classList.add('hidden');
+        this.mfaScreen.classList.remove('hidden');
+        this.mfaInput.value = '';
+        this.hideMfaError();
+        this.mfaInput.focus();
+    }
+
+    showTotpEnrollScreen() {
+        this.loginScreen.classList.add('hidden');
+        this.chatScreen.classList.add('hidden');
+        this.mfaScreen.classList.add('hidden');
+        this.totpEnrollScreen.classList.remove('hidden');
+        this.totpEnrollInput.value = '';
+        this.hideTotpEnrollError();
+        this.totpEnrollInput.focus();
+    }
+
+    showLoginScreen() {
+        this.chatScreen.classList.add('hidden');
+        this.mfaScreen.classList.add('hidden');
+        this.totpEnrollScreen.classList.add('hidden');
+        this.loginScreen.classList.remove('hidden');
+        this.loginBtn.disabled = false;
+        this.loginBtn.textContent = '로그인';
+    }
+
+    async verifyMfa() {
+        const code = this.mfaInput.value.trim();
+
+        if (code.length !== 6) {
+            this.showMfaError('6자리 코드를 입력하세요.');
+            return;
+        }
+
+        this.mfaVerifyBtn.disabled = true;
+        this.mfaVerifyBtn.textContent = '인증 중...';
+        this.hideMfaError();
+
+        try {
+            // Challenge 생성
+            const { data: challengeData, error: challengeError } = await this.supabase.auth.mfa.challenge({
+                factorId: this.mfaFactorId
+            });
+
+            if (challengeError) {
+                throw challengeError;
+            }
+
+            // Verify
+            const { data, error } = await this.supabase.auth.mfa.verify({
+                factorId: this.mfaFactorId,
+                challengeId: challengeData.id,
+                code
+            });
+
+            if (error) {
+                throw error;
+            }
+
+            console.log('MFA 인증 완료:', data);
+            this.proceedToChat();
+
+        } catch (error) {
+            console.error('MFA 인증 오류:', error);
+            this.showMfaError('인증 코드가 올바르지 않습니다.');
+            this.mfaInput.value = '';
+            this.mfaInput.focus();
+        } finally {
+            this.mfaVerifyBtn.disabled = false;
+            this.mfaVerifyBtn.textContent = '인증하기';
+        }
+    }
+
+    proceedToChat() {
+        // 이미 채팅 화면이면 무시 (중복 호출 방지)
+        if (!this.chatScreen.classList.contains('hidden')) {
+            console.log('이미 채팅 화면입니다.');
+            return;
+        }
+
+        this.loginScreen.classList.add('hidden');
+        this.mfaScreen.classList.add('hidden');
+        this.totpEnrollScreen.classList.add('hidden');
+        this.chatScreen.classList.remove('hidden');
+
+        // Realtime 채널 연결
+        this.connectChannel();
+    }
+
+    showLoginError(message) {
+        this.loginError.textContent = message;
+        this.loginError.classList.remove('hidden');
+    }
+
+    hideLoginError() {
+        this.loginError.classList.add('hidden');
+    }
+
+    showMfaError(message) {
+        this.mfaError.textContent = message;
+        this.mfaError.classList.remove('hidden');
+    }
+
+    hideMfaError() {
+        this.mfaError.classList.add('hidden');
+    }
+
+    showTotpEnrollError(message) {
+        this.totpEnrollError.textContent = message;
+        this.totpEnrollError.classList.remove('hidden');
+    }
+
+    hideTotpEnrollError() {
+        this.totpEnrollError.classList.add('hidden');
+    }
+
+    async logout() {
+        if (!confirm('로그아웃 하시겠습니까?')) {
+            return;
+        }
+
+        try {
+            await this.cleanup();
+            await this.supabase.auth.signOut();
+
+            // 페이지 새로고침으로 모든 상태 초기화
+            window.location.reload();
+
+        } catch (error) {
+            console.error('로그아웃 오류:', error);
+            // 오류가 발생해도 새로고침
+            window.location.reload();
         }
     }
 
@@ -259,12 +472,15 @@ class ChatClient {
         // Python 봇에 세션 리셋 요청 전송
         if (this.channel) {
             try {
+                const { data: { session } } = await this.supabase.auth.getSession();
+                const accessToken = session?.access_token || '';
+
                 await this.channel.send({
                     type: 'broadcast',
                     event: 'session_reset',
                     payload: {
                         username: this.username,
-                        auth_token: this.authToken || ''
+                        auth_token: accessToken
                     }
                 });
                 this.addSystemMessage('새 세션이 시작되었습니다.');
@@ -277,21 +493,6 @@ class ChatClient {
         }
     }
 
-    async join() {
-        const username = this.usernameInput.value.trim();
-        if (!username) {
-            alert('사용자 이름을 입력하세요.');
-            return;
-        }
-
-        this.username = username;
-        localStorage.setItem('chat_username', username);
-        this.loginScreen.classList.add('hidden');
-        this.chatScreen.classList.remove('hidden');
-
-        await this.connect();
-    }
-
     updateStatus(text, isConnected) {
         this.statusEl.textContent = text;
         if (isConnected) {
@@ -301,23 +502,23 @@ class ChatClient {
         }
     }
 
-    async connect() {
+    async connectChannel() {
         if (this.isConnecting) {
             console.log('이미 연결 시도 중...');
             return;
         }
 
         this.isConnecting = true;
+        this.subscribedHandled = false;  // 새 연결 시작 시 플래그 리셋
         this.updateStatus('연결 중...', false);
 
         try {
             // 기존 연결 정리
             await this.cleanup();
 
-            this.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
             this.channel = this.supabase.channel(CHANNEL_NAME);
 
-            // 채널 상태 변화 감지
+            // 채널 이벤트 설정
             this.channel
                 .on('broadcast', { event: 'message' }, (payload) => {
                     this.onMessage(payload.payload);
@@ -334,12 +535,6 @@ class ChatClient {
                 .on('broadcast', { event: 'usage_status' }, (payload) => {
                     this.onUsageStatus(payload.payload);
                 })
-                .on('broadcast', { event: 'otp_result' }, (payload) => {
-                    this.onOtpResult(payload.payload);
-                })
-                .on('broadcast', { event: 'auth_required' }, (payload) => {
-                    this.onAuthRequired(payload.payload);
-                })
                 .subscribe((status, err) => {
                     this.isConnecting = false;
 
@@ -348,24 +543,32 @@ class ChatClient {
                         this.reconnectAttempts = 0;
                         this.updateStatus(`연결됨 - ${this.username}`, true);
 
-                        // 첫 연결과 재연결 구분
-                        if (!this.hasConnectedOnce) {
-                            this.hasConnectedOnce = true;
-                            this.addSystemMessage(`${this.username}님이 입장했습니다.`);
-                        } else {
-                            this.addSystemMessage('다시 연결되었습니다.');
+                        // 중복 SUBSCRIBED 이벤트 방지
+                        if (!this.subscribedHandled) {
+                            this.subscribedHandled = true;
+
+                            // 첫 연결과 재연결 구분
+                            if (!this.hasConnectedOnce) {
+                                this.hasConnectedOnce = true;
+                                this.addSystemMessage(`${this.username}님이 입장했습니다.`);
+                            } else {
+                                this.addSystemMessage('다시 연결되었습니다.');
+                            }
+
+                            // 사용량 조회 요청
+                            this.requestUsageStatus();
                         }
 
                         this.startHeartbeat();
 
-                        // 접속 시 사용량 조회 요청
-                        this.requestUsageStatus();
                     } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
                         console.log('채널 연결 실패/종료:', status, err);
+                        this.subscribedHandled = false;  // 재연결 시 메시지 표시를 위해 리셋
                         this.updateStatus('연결 끊김', false);
                         this.scheduleReconnect();
                     } else if (status === 'TIMED_OUT') {
                         console.log('채널 연결 타임아웃');
+                        this.subscribedHandled = false;  // 재연결 시 메시지 표시를 위해 리셋
                         this.updateStatus('연결 타임아웃', false);
                         this.scheduleReconnect();
                     }
@@ -390,24 +593,14 @@ class ChatClient {
             this.heartbeatTimer = null;
         }
 
-        // 채널 정리
+        // 채널 정리 (완전히 제거)
         if (this.channel) {
             try {
-                await this.channel.unsubscribe();
+                await this.supabase.removeChannel(this.channel);
             } catch (e) {
                 console.log('채널 정리 중 오류:', e);
             }
             this.channel = null;
-        }
-
-        // Supabase 클라이언트 정리
-        if (this.supabase) {
-            try {
-                await this.supabase.removeAllChannels();
-            } catch (e) {
-                console.log('Supabase 정리 중 오류:', e);
-            }
-            this.supabase = null;
         }
     }
 
@@ -436,7 +629,7 @@ class ChatClient {
 
     async reconnect() {
         console.log('재연결 시도...');
-        await this.connect();
+        await this.connectChannel();
     }
 
     checkConnection() {
@@ -447,7 +640,7 @@ class ChatClient {
         }
 
         // 연결 상태 확인 및 필요시 재연결
-        if (!this.channel || !this.supabase) {
+        if (!this.channel) {
             console.log('연결 상태 확인: 연결되지 않음, 재연결 시도');
             this.reconnect();
         }
@@ -1328,13 +1521,17 @@ class ChatClient {
         if (!message || !this.channel) return;
 
         try {
+            // JWT 토큰 가져오기
+            const { data: { session } } = await this.supabase.auth.getSession();
+            const accessToken = session?.access_token || '';
+
             await this.channel.send({
                 type: 'broadcast',
                 event: 'message',
                 payload: {
                     username: this.username,
                     message: message,
-                    auth_token: this.authToken || ''
+                    auth_token: accessToken
                 }
             });
 
