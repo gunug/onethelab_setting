@@ -652,7 +652,10 @@ class ChatClient {
     scrollToBottom() {
         // 자동 스크롤 체크박스가 켜져있으면 항상 스크롤
         if (this.autoScrollCheckbox && this.autoScrollCheckbox.checked) {
-            this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
+            // DOM 업데이트 후 스크롤 (렌더링 완료 대기)
+            requestAnimationFrame(() => {
+                this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
+            });
         }
     }
 
