@@ -51,7 +51,7 @@ supabase projects api-keys --project-ref bgnhocgfbtnxosrjcxog  # API 키 확인
 - 자신의 채팅 메시지 로컬 출력 (Python, HTML/JS 모두 지원)
 - Python 채팅봇과 HTML 웹 클라이언트 간 실시간 통신
 - Python: Ctrl+C 또는 'quit' 입력으로 안전한 종료 처리
-- Python Claude 봇: 기본 이름 "Claude", 명령줄 인자로 프롬프트 전달, 시작 시 CLI 테스트 후 대기
+- Python Claude 봇: 기본 이름 "Claude", 채팅 모드 (하나의 프로세스 유지, 컨텍스트 유지됨)
 - Claude CLI 권한: `--dangerously-skip-permissions` 옵션으로 모든 권한 자동 허용
 - Claude CLI 진행 상황 실시간 표시 (stream-json 파싱)
   - 모델 정보, 도구 호출 상태, 완료 통계 (시간, 비용, 토큰)
