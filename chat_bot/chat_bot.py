@@ -167,11 +167,44 @@ class ChatBot:
         self.current_stop_event = None
         self.session_id = str(uuid.uuid4())  # 세션 ID 생성
         self.session_started = False  # 세션 시작 여부
+        # 요청 큐 관련
+        self.request_queue = []  # 대기 중인 요청 목록 [{"sender": str, "message": str}, ...]
+        self.queue_lock = threading.Lock()  # 큐 접근 동기화
 
     def reset_session(self):
         """Claude 세션 리셋 - 새 세션 ID 생성"""
         self.session_id = str(uuid.uuid4())
         self.session_started = False
+
+    def add_to_queue(self, sender: str, message: str):
+        """요청을 대기열에 추가"""
+        with self.queue_lock:
+            self.request_queue.append({"sender": sender, "message": message})
+            queue_length = len(self.request_queue)
+            print(f"[대기열] 요청 추가: {sender} - '{message[:30]}...' (대기: {queue_length}개)")
+            return queue_length
+
+    def get_next_from_queue(self):
+        """대기열에서 다음 요청 가져오기 (제거)"""
+        with self.queue_lock:
+            if self.request_queue:
+                return self.request_queue.pop(0)
+            return None
+
+    def peek_next_in_queue(self):
+        """대기열의 다음 요청 확인 (제거하지 않음)"""
+        with self.queue_lock:
+            if self.request_queue:
+                return self.request_queue[0]
+            return None
+
+    def get_queue_status(self):
+        """대기열 상태 조회"""
+        with self.queue_lock:
+            return {
+                "count": len(self.request_queue),
+                "items": [{"sender": r["sender"], "message": r["message"][:50]} for r in self.request_queue]
+            }
 
     def on_broadcast(self, payload):
         """수신된 메시지 출력 및 Claude 전달"""
@@ -192,10 +225,18 @@ class ChatBot:
         print(f"[{sender}]: {message}")
 
         if self.enable_claude and sender != self.username and sender != self.CLAUDE_USERNAME:
-            if self.loop and not self.claude_processing:
+            if self.loop:
+                # 모든 요청을 먼저 대기열에 추가
+                queue_length = self.add_to_queue(sender, message)
+                # 대기열 상태 브로드캐스트
                 asyncio.run_coroutine_threadsafe(
-                    self.ask_claude(message, sender), self.loop
+                    self.send_queue_status(), self.loop
                 )
+                # 처리 중이 아니면 대기열에서 꺼내서 처리 시작
+                if not self.claude_processing:
+                    asyncio.run_coroutine_threadsafe(
+                        self.process_next_in_queue(), self.loop
+                    )
 
     async def send_progress(self, progress_type: str, data: dict):
         """진행 상황을 채팅방에 전송"""
@@ -210,6 +251,30 @@ class ChatBot:
                 )
             except Exception as e:
                 print(f"[경고] 진행 상황 전송 실패: {e}")
+
+    async def send_queue_status(self):
+        """대기열 상태를 채팅방에 전송"""
+        if self.channel and self.is_connected:
+            try:
+                status = self.get_queue_status()
+                await self.channel.send_broadcast(
+                    event="queue_status",
+                    data=status
+                )
+                print(f"[DEBUG] 대기열 상태 전송: {status['count']}개")
+            except Exception as e:
+                print(f"[경고] 대기열 상태 전송 실패: {e}")
+
+    async def process_next_in_queue(self):
+        """대기열의 다음 요청 처리"""
+        next_request = self.peek_next_in_queue()
+        if next_request:
+            print(f"[대기열] 다음 요청 처리: {next_request['sender']} - '{next_request['message'][:30]}...'")
+            # 요청 처리 (완료 후 대기열에서 제거됨)
+            await self.ask_claude(next_request["message"], next_request["sender"])
+        else:
+            # 대기열이 비었음을 알림
+            await self.send_queue_status()
 
     async def ask_claude(self, message: str, sender: str):
         """Claude CLI에 메시지 전달하고 응답 받기 (프린트 모드)"""
@@ -472,6 +537,12 @@ class ChatBot:
         finally:
             print(f"[DEBUG] ask_claude 종료")
             self.claude_processing = False
+            # 처리 완료 후 대기열에서 제거하고 상태 업데이트
+            self.get_next_from_queue()  # 현재 요청 제거
+            await self.send_queue_status()  # 상태 전송 (알림음은 여기서 발생)
+            # 대기열에 다음 요청이 있으면 처리
+            if self.should_run:
+                await self.process_next_in_queue()
 
     async def send_claude_response(self, response: str):
         """Claude 응답을 채팅방에 전송"""

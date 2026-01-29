@@ -56,7 +56,7 @@
             flex: 1;
             overflow-y: auto;
             padding: 16px;
-            padding-top: 70px;
+            padding-top: 110px;
             padding-bottom: 80px;
         }
         .message {
@@ -771,6 +771,101 @@
             color: #888;
             cursor: pointer;
         }
+        /* Queue UI - 헤더 바로 아래 고정 */
+        .queue-container {
+            position: fixed;
+            top: 50px;
+            left: 0;
+            right: 0;
+            background: #1b263b;
+            border-bottom: 1px solid #f59e0b;
+            overflow: hidden;
+            z-index: 99;
+        }
+        .queue-header {
+            background: #2d1f0f;
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+        }
+        .queue-header:hover {
+            background: #3d2f1f;
+        }
+        .queue-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #f59e0b;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        .queue-count {
+            background: #f59e0b;
+            color: #000;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: bold;
+        }
+        .queue-toggle {
+            color: #f59e0b;
+            font-size: 0.7rem;
+        }
+        .queue-body {
+            max-height: 200px;
+            overflow-y: auto;
+            background: #0d1b2a;
+        }
+        .queue-body.collapsed {
+            max-height: 0;
+            overflow: hidden;
+        }
+        .queue-item {
+            padding: 8px 12px;
+            border-bottom: 1px solid #1b263b;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+        .queue-item:last-child {
+            border-bottom: none;
+        }
+        .queue-item-number {
+            background: #333;
+            color: #888;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.65rem;
+            flex-shrink: 0;
+        }
+        .queue-item-content {
+            flex: 1;
+            min-width: 0;
+        }
+        .queue-item-sender {
+            color: #e94560;
+            font-size: 0.7rem;
+            margin-bottom: 2px;
+        }
+        .queue-item-message {
+            color: #aaa;
+            font-size: 0.75rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .queue-empty {
+            padding: 12px;
+            text-align: center;
+            color: #666;
+            font-size: 0.75rem;
+        }
     </style>
 </head>
 <body>
@@ -791,9 +886,26 @@
                     <input type="checkbox" id="autoScrollCheckbox" checked>
                     <label for="autoScrollCheckbox">자동 스크롤</label>
                 </div>
+                <div class="auto-scroll-container">
+                    <input type="checkbox" id="queueSoundCheckbox" checked>
+                    <label for="queueSoundCheckbox">완료 알림</label>
+                </div>
             </div>
             <button id="changeNameBtn" class="change-name-btn">이름변경</button>
             <button id="clearSessionBtn" class="clear-session-btn">새 세션</button>
+        </div>
+        <!-- 요청 대기열 UI (헤더 바로 아래 고정) -->
+        <div id="queueContainer" class="queue-container">
+            <div class="queue-header">
+                <div class="queue-title">
+                    <span>⏳ 대기 중인 요청</span>
+                    <span class="queue-count">0</span>
+                </div>
+                <span class="queue-toggle">펼치기</span>
+            </div>
+            <div class="queue-body collapsed">
+                <div class="queue-empty">대기 중인 요청이 없습니다.</div>
+            </div>
         </div>
         <div id="chatContainer" class="chat-container"></div>
         <div class="input-container">

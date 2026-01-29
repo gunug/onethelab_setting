@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **각각의 수정사항의 마지막에 반드시 CLAUDE.md 파일을 업데이트할 것.**
 
-**기능이 완성되면 git에 커밋할 것. 오류가 있거나 디버깅 중일 때는 커밋하지 말 것. GitHub에는 push하지 말 것.**
+**기능이 완성되면 git에 커밋할 것. 오류가 있거나 디버깅 중일 때는 커밋하지 말 것. 자동으로 GitHub에 push 하지 말것.**
 
 **할 일을 물어보면 `project_docs/todo.md` 파일을 읽고 답할 것. 할 일 추가 요청 시 해당 파일에 추가할 것.**
 
@@ -14,6 +14,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Supabase Realtime 기반 실시간 통신 프로젝트 설정 저장소.
 DB 없이 Broadcast 기능만 사용하여 WebSocket 통신 구현.
+
+## Git 변경 추적 비활성화 파일
+
+다음 파일들은 `git update-index --assume-unchanged`로 변경 추적이 비활성화되어 있음:
+- `chat_bot/.env` - Supabase 연결 정보 (실제 키 입력 후 사용)
+- `chat_client/config.js` - Supabase 연결 정보 (실제 키 입력 후 사용)
+
+추적 다시 활성화하려면:
+```bash
+git update-index --no-assume-unchanged chat_bot/.env chat_client/config.js
+```
 
 ## Project Structure
 
@@ -28,20 +39,7 @@ supabase/                # Supabase 프로젝트 설정
 chat_bot/               # Python 채팅봇 클라이언트
 chat_client/            # HTML/JS 웹 채팅 클라이언트
 run_chat_bot.bat         # Python 채팅봇 실행 스크립트
-```
-
-## Supabase 연결 정보
-
-- Project: claude-realtime
-- Region: Northeast Asia (Tokyo)
-- Project URL: https://bgnhocgfbtnxosrjcxog.supabase.co
-
-## 관련 명령어
-
-```bash
-supabase projects list    # 프로젝트 목록 확인
-supabase link             # 프로젝트 연결
-supabase projects api-keys --project-ref bgnhocgfbtnxosrjcxog  # API 키 확인
+README.md                # 프로젝트 소개 문서
 ```
 
 ## Python 채팅봇
@@ -78,6 +76,8 @@ supabase projects api-keys --project-ref bgnhocgfbtnxosrjcxog  # API 키 확인
 - HTML 클라이언트: Write content UI (파일 내용 표시, 접기/펼치기 지원)
 - HTML 클라이언트: TodoWrite UI (할 일 목록 표시, 상태별 아이콘: ○ 대기/◐ 진행중/✓ 완료, 접기/펼치기 지원)
 - HTML 클라이언트: AskUserQuestion UI (질문/옵션 버튼, 단일/멀티 선택, 기타 입력, 응답 제출)
+- HTML 클라이언트: 요청 대기열 UI (헤더 아래 고정 표시, 항상 표시, 대기 중인 요청 수/목록, 접기/펼치기 지원)
+- HTML 클라이언트: 대기열 완료 알림 소리 (모든 요청 처리 완료 시 Web Audio API로 알림음 재생, 토글 지원)
 - HTML 클라이언트: 모든 메시지에 마크다운 렌더링 적용 (marked.js 사용, Claude뿐 아니라 모든 발신자)
 - HTML 클라이언트: 헤더 화면 상단 고정 (한 줄 레이아웃, flexbox 다단 배치), 채팅 입력창 화면 하단 고정 (position: fixed)
 - HTML 클라이언트: 자동 스크롤 체크박스 (켜면 항상 최신 메시지로 스크롤, 끄면 스크롤 유지, requestAnimationFrame으로 렌더링 후 스크롤)
@@ -90,7 +90,7 @@ supabase projects api-keys --project-ref bgnhocgfbtnxosrjcxog  # API 키 확인
 - 재연결 로직: 연결 실패 시 자동 재연결 (최대 10회, 5초 간격)
 - Graceful shutdown: 프로그램 종료 시 Claude 프로세스 및 스레드 정리
 - Claude CLI 타임아웃: 300초 타임아웃 설정 (무한 대기 방지)
-- 동시 요청 방지: Claude 처리 중 추가 요청 무시
+- 요청 큐: 모든 요청을 대기열에 추가 후 순차 처리, 처리 완료 후 대기열에서 제거 (응답 출력 후 알림음)
 - 연결 상태 관리: `is_connected` 플래그로 연결 상태 추적
 - 예외 처리 강화: stdin/stdout 오류, 프로세스 종료 등 다양한 상황 처리
 - 세션 유지: 봇 시작 시 UUID 생성하여 동일 세션으로 대화 컨텍스트 유지

@@ -18,6 +18,10 @@ class ChatClient {
         this.heartbeatTimer = null;
         this.isConnecting = false;
         this.hasConnectedOnce = false;  // 첫 연결 여부
+        this.queueElement = null;  // 대기열 UI 요소
+        this.queueCollapsed = false;  // 대기열 접힘 상태
+        this.previousQueueCount = 0;  // 이전 대기열 수 (완료 알림용)
+        this.queueSoundEnabled = localStorage.getItem('queue_sound') !== 'false';  // 소리 알림 설정
         this.init();
     }
 
@@ -34,6 +38,7 @@ class ChatClient {
         this.changeNameBtn = document.getElementById('changeNameBtn');
         this.clearSessionBtn = document.getElementById('clearSessionBtn');
         this.autoScrollCheckbox = document.getElementById('autoScrollCheckbox');
+        this.queueSoundCheckbox = document.getElementById('queueSoundCheckbox');
 
         // 이벤트 바인딩
         this.joinBtn.addEventListener('click', () => this.join());
@@ -46,6 +51,15 @@ class ChatClient {
         });
         this.changeNameBtn.addEventListener('click', () => this.changeName());
         this.clearSessionBtn.addEventListener('click', () => this.clearSession());
+
+        // 소리 알림 체크박스 이벤트
+        if (this.queueSoundCheckbox) {
+            this.queueSoundCheckbox.checked = this.queueSoundEnabled;
+            this.queueSoundCheckbox.addEventListener('change', () => {
+                this.queueSoundEnabled = this.queueSoundCheckbox.checked;
+                localStorage.setItem('queue_sound', this.queueSoundEnabled ? 'true' : 'false');
+            });
+        }
 
         // 페이지 가시성 변경 감지 (탭 전환 시 재연결)
         document.addEventListener('visibilitychange', () => {
@@ -69,6 +83,9 @@ class ChatClient {
 
         // localStorage에서 저장된 이름 확인 후 자동 로그인
         this.checkSavedUsername();
+
+        // 큐 UI 초기화
+        this.initQueueUI();
     }
 
     checkSavedUsername() {
@@ -174,6 +191,9 @@ class ChatClient {
                 })
                 .on('broadcast', { event: 'permission_request' }, (payload) => {
                     this.onPermissionRequest(payload.payload);
+                })
+                .on('broadcast', { event: 'queue_status' }, (payload) => {
+                    this.onQueueStatus(payload.payload);
                 })
                 .subscribe((status, err) => {
                     this.isConnecting = false;
@@ -299,6 +319,79 @@ class ChatClient {
         const { username, message } = data;
         if (username === this.username) return;
         this.addMessage(username, message, false);
+    }
+
+    onQueueStatus(data) {
+        const { count, items } = data;
+        console.log('대기열 상태:', count, items);
+
+        // 대기열이 비워졌을 때 완료 알림 소리 재생
+        if (this.previousQueueCount > 0 && count === 0 && this.queueSoundEnabled) {
+            this.playQueueCompleteSound();
+        }
+        this.previousQueueCount = count;
+
+        // 고정된 큐 UI 업데이트 (항상 표시, 숨기지 않음)
+        this.updateQueueUI(count, items);
+    }
+
+    initQueueUI() {
+        // HTML에 고정된 큐 UI 요소 참조
+        this.queueElement = document.getElementById('queueContainer');
+        if (!this.queueElement) return;
+
+        // 헤더 클릭 시 접기/펼치기
+        const header = this.queueElement.querySelector('.queue-header');
+        header.addEventListener('click', () => {
+            const body = this.queueElement.querySelector('.queue-body');
+            const toggle = this.queueElement.querySelector('.queue-toggle');
+            if (body.classList.contains('collapsed')) {
+                body.classList.remove('collapsed');
+                toggle.textContent = '접기';
+                this.queueCollapsed = false;
+            } else {
+                body.classList.add('collapsed');
+                toggle.textContent = '펼치기';
+                this.queueCollapsed = true;
+            }
+        });
+    }
+
+    updateQueueUI(count, items) {
+        if (!this.queueElement) return;
+
+        const countEl = this.queueElement.querySelector('.queue-count');
+        const bodyEl = this.queueElement.querySelector('.queue-body');
+
+        countEl.textContent = count;
+
+        if (items && items.length > 0) {
+            let itemsHtml = '';
+            items.forEach((item, index) => {
+                itemsHtml += `
+                    <div class="queue-item">
+                        <div class="queue-item-number">${index + 1}</div>
+                        <div class="queue-item-content">
+                            <div class="queue-item-sender">${this.escapeHtml(item.sender)}</div>
+                            <div class="queue-item-message">${this.escapeHtml(item.message)}</div>
+                        </div>
+                    </div>
+                `;
+            });
+            bodyEl.innerHTML = itemsHtml;
+        } else {
+            bodyEl.innerHTML = '<div class="queue-empty">대기 중인 요청이 없습니다.</div>';
+        }
+
+        // 접힘 상태 유지
+        const toggle = this.queueElement.querySelector('.queue-toggle');
+        if (this.queueCollapsed) {
+            bodyEl.classList.add('collapsed');
+            toggle.textContent = '펼치기';
+        } else {
+            bodyEl.classList.remove('collapsed');
+            toggle.textContent = '접기';
+        }
     }
 
     onProgress(data) {
@@ -432,6 +525,40 @@ class ChatClient {
         } catch (e) {
             // 오디오 재생 실패는 무시
         }
+    }
+
+    playQueueCompleteSound() {
+        // 대기열 완료 알림 소리 (두 음 연속 - 완료 느낌)
+        try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const gainNode = audioContext.createGain();
+            gainNode.connect(audioContext.destination);
+            gainNode.gain.value = 0.15;
+
+            // 첫 번째 음 (C5 - 523Hz)
+            const osc1 = audioContext.createOscillator();
+            osc1.connect(gainNode);
+            osc1.frequency.value = 523;
+            osc1.type = 'sine';
+            osc1.start(audioContext.currentTime);
+            osc1.stop(audioContext.currentTime + 0.15);
+
+            // 두 번째 음 (G5 - 784Hz)
+            const osc2 = audioContext.createOscillator();
+            osc2.connect(gainNode);
+            osc2.frequency.value = 784;
+            osc2.type = 'sine';
+            osc2.start(audioContext.currentTime + 0.15);
+            osc2.stop(audioContext.currentTime + 0.3);
+        } catch (e) {
+            // 오디오 재생 실패는 무시
+        }
+    }
+
+    toggleQueueSound() {
+        this.queueSoundEnabled = !this.queueSoundEnabled;
+        localStorage.setItem('queue_sound', this.queueSoundEnabled ? 'true' : 'false');
+        return this.queueSoundEnabled;
     }
 
     createProgressUI() {
