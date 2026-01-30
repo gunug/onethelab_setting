@@ -5,6 +5,7 @@ import threading
 import uuid
 import sys
 import os
+from datetime import datetime
 from queue import Queue, Empty
 from aiohttp import web
 from collections import deque
@@ -56,6 +57,102 @@ session_started = False
 # 요청 큐 관리
 request_queue = deque()  # 대기 중인 요청 큐
 queue_lock = asyncio.Lock()  # 큐 접근 동기화
+
+
+def get_claude_usage():
+    """ccusage를 통해 오늘의 Claude 사용량 조회"""
+    try:
+        result = subprocess.run(
+            'npx ccusage@latest daily --json',
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            shell=True,
+            timeout=30
+        )
+        if result.returncode != 0:
+            print(f"[DEBUG] ccusage 실행 실패: {result.stderr}")
+            return None
+
+        data = json.loads(result.stdout)
+        daily_data = data.get("daily", [])
+        totals = data.get("totals", {})
+
+        # 오늘 날짜의 데이터 찾기
+        today = datetime.now().strftime("%Y-%m-%d")
+        today_usage = None
+        for day in daily_data:
+            if day.get("date") == today:
+                today_usage = day
+                break
+
+        return {
+            "today": today_usage,
+            "totals": totals,
+            "date": today
+        }
+    except subprocess.TimeoutExpired:
+        print("[DEBUG] ccusage 타임아웃")
+        return None
+    except json.JSONDecodeError as e:
+        print(f"[DEBUG] ccusage JSON 파싱 실패: {e}")
+        return None
+    except Exception as e:
+        print(f"[DEBUG] ccusage 오류: {e}")
+        return None
+
+
+def get_claude_blocks():
+    """ccusage를 통해 5시간 블록 사용량 조회"""
+    try:
+        result = subprocess.run(
+            'npx ccusage@latest blocks --json',
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            shell=True,
+            timeout=30
+        )
+        if result.returncode != 0:
+            print(f"[DEBUG] ccusage blocks 실행 실패: {result.stderr}")
+            return None
+
+        data = json.loads(result.stdout)
+        blocks = data.get("blocks", [])
+
+        # 현재 활성 블록 찾기
+        active_block = None
+        for block in blocks:
+            if block.get("isActive") and not block.get("isGap"):
+                active_block = block
+                break
+
+        if not active_block:
+            return None
+
+        # 블록 정보 추출
+        projection = active_block.get("projection", {})
+        burn_rate = active_block.get("burnRate", {})
+
+        return {
+            "startTime": active_block.get("startTime"),
+            "endTime": active_block.get("endTime"),
+            "costUSD": active_block.get("costUSD", 0),
+            "totalTokens": active_block.get("totalTokens", 0),
+            "remainingMinutes": projection.get("remainingMinutes", 0) if projection else 0,
+            "projectedCost": projection.get("totalCost", 0) if projection else 0,
+            "costPerHour": burn_rate.get("costPerHour", 0) if burn_rate else 0,
+            "models": active_block.get("models", [])
+        }
+    except subprocess.TimeoutExpired:
+        print("[DEBUG] ccusage blocks 타임아웃")
+        return None
+    except json.JSONDecodeError as e:
+        print(f"[DEBUG] ccusage blocks JSON 파싱 실패: {e}")
+        return None
+    except Exception as e:
+        print(f"[DEBUG] ccusage blocks 오류: {e}")
+        return None
 
 
 def test_claude_cli():
@@ -202,6 +299,49 @@ async def send_queue_status():
     })
 
 
+async def send_usage_status():
+    """Claude 사용량 상태를 모든 클라이언트에게 브로드캐스트"""
+    try:
+        # 별도 스레드에서 ccusage 실행 (비동기) - daily와 blocks 병렬 실행
+        loop = asyncio.get_event_loop()
+        usage_task = loop.run_in_executor(None, get_claude_usage)
+        blocks_task = loop.run_in_executor(None, get_claude_blocks)
+
+        usage = await usage_task
+        blocks = await blocks_task
+
+        # 데이터 병합
+        combined_data = {}
+        if usage:
+            combined_data["today"] = usage.get("today")
+            combined_data["totals"] = usage.get("totals")
+            combined_data["date"] = usage.get("date")
+
+        if blocks:
+            combined_data["block"] = blocks
+
+        if combined_data:
+            await broadcast({
+                "type": "usage_status",
+                **combined_data
+            })
+
+            # 디버그 로그
+            today_cost = combined_data.get("today", {})
+            if today_cost:
+                cost_usd = today_cost.get("totalCost", 0)
+                cost_krw = cost_usd * USD_TO_KRW
+                print(f"[DEBUG] 사용량 전송: 오늘 ${cost_usd:.2f} (₩{cost_krw:,.0f})")
+
+            if blocks:
+                remaining = blocks.get("remainingMinutes", 0)
+                block_cost = blocks.get("costUSD", 0)
+                print(f"[DEBUG] 블록 전송: ${block_cost:.2f}, 남은 시간: {remaining}분")
+
+    except Exception as e:
+        print(f"[경고] 사용량 상태 전송 실패: {e}")
+
+
 async def add_to_queue(message: str, sender: str):
     """요청을 큐에 추가"""
     async with queue_lock:
@@ -237,6 +377,8 @@ async def process_queue():
                 request_queue.popleft()
                 print(f"[큐] 요청 완료 (남은: {len(request_queue)}개)")
             await send_queue_status()
+            # 사용량 정보 전송
+            await send_usage_status()
 
 
 async def ask_claude(message: str, sender: str):
@@ -506,6 +648,9 @@ async def handle_websocket(request):
         "message": "WebSocket 서버에 연결되었습니다."
     }, ensure_ascii=False))
 
+    # 접속 시 사용량 정보 전송
+    asyncio.create_task(send_usage_status())
+
     try:
         async for msg in ws:
             if msg.type == web.WSMsgType.TEXT:
@@ -539,6 +684,9 @@ async def handle_websocket(request):
                                 "type": "system",
                                 "message": f"세션이 리셋되었습니다. (새 세션: {new_session[:8]}...)"
                             })
+                        elif command == "request_usage":
+                            # 사용량 조회 요청
+                            asyncio.create_task(send_usage_status())
                         elif command == "restart":
                             print("[명령] 서버 재시작 요청됨")
                             await broadcast({

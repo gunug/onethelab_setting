@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Chat Socket - Claude 채팅</title>
 
     <!-- PWA 메타 태그 -->
@@ -39,19 +39,46 @@
             box-sizing: border-box;
         }
 
+        /* 모바일 브라우저 주소창/내비게이션 바 고려 */
+        html {
+            height: 100%;
+            height: -webkit-fill-available;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background-color: #1a1a2e;
             color: #eee;
-            height: 100vh;
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* body 자체 스크롤 방지 */
+            position: fixed; /* 안드로이드 PWA에서 화면 고정 */
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+        }
+
+        /* 앱 컨테이너 - 전체 화면 */
+        .app-container {
             display: flex;
             flex-direction: column;
+            height: 100%;
+            width: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
         }
 
         /* 헤더 */
         .header {
             background-color: #16213e;
             padding: 12px 20px;
+            padding-top: calc(12px + env(safe-area-inset-top, 0px)); /* iOS 노치 대응 */
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -117,11 +144,22 @@
             background-color: #6b2c5c;
         }
 
+        .install-btn {
+            background-color: #2563eb;
+            border-color: #2563eb;
+        }
+
+        .install-btn:hover {
+            background-color: #3b82f6;
+        }
+
         /* 채팅 영역 */
         .chat-container {
             flex: 1;
             overflow-y: auto;
+            -webkit-overflow-scrolling: touch; /* iOS 부드러운 스크롤 */
             padding: 20px;
+            min-height: 0; /* flex 자식 요소가 부모를 넘치지 않도록 */
         }
 
         .message {
@@ -162,6 +200,8 @@
             border-radius: 12px;
             line-height: 1.6;
             word-wrap: break-word;
+            overflow-wrap: anywhere;
+            word-break: break-word;
         }
 
         .message.claude .content {
@@ -186,6 +226,7 @@
             border-radius: 4px;
             font-family: 'Consolas', 'Monaco', monospace;
             font-size: 13px;
+            word-break: break-all;
         }
 
         .message .content pre {
@@ -194,11 +235,14 @@
             border-radius: 8px;
             overflow-x: auto;
             margin: 8px 0;
+            white-space: pre-wrap;
+            word-break: break-all;
         }
 
         .message .content pre code {
             background: none;
             padding: 0;
+            word-break: break-all;
         }
 
         .message .content ul, .message .content ol {
@@ -339,8 +383,9 @@
             font-size: 12px;
             color: #fbbf24;
             margin-top: 6px;
-            overflow-x: auto;
-            white-space: nowrap;
+            white-space: pre-wrap;
+            word-break: break-all;
+            overflow-wrap: anywhere;
         }
 
         .progress-bar-container {
@@ -565,7 +610,8 @@
         /* 입력 영역 */
         .input-container {
             background-color: #16213e;
-            padding: 16px 20px;
+            padding: 12px 20px;
+            padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); /* iOS 노치 대응 */
             border-top: 1px solid #0f3460;
             flex-shrink: 0;
         }
@@ -651,6 +697,174 @@
 
         .sound-container input {
             cursor: pointer;
+        }
+
+        /* 사용량 UI */
+        .usage-container {
+            display: flex;
+            flex-wrap: nowrap;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            color: #888;
+            flex-shrink: 0;
+        }
+
+        .usage-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
+        }
+
+        .usage-label {
+            color: #666;
+        }
+
+        .usage-value {
+            color: #4ade80;
+            font-weight: 500;
+        }
+
+        .usage-value.warning {
+            color: #f59e0b;
+        }
+
+        .usage-value.danger {
+            color: #ef4444;
+        }
+
+        .usage-divider {
+            color: #333;
+        }
+
+        /* 사용량 정보 아이콘 */
+        .usage-info-icon {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #333;
+            color: #888;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .usage-info-icon:hover {
+            background: #4ade80;
+            color: #000;
+        }
+
+        .usage-info-icon.active {
+            background: #4ade80;
+            color: #000;
+        }
+
+        /* 사용량 정보 패널 */
+        .usage-info-panel {
+            position: fixed;
+            top: 60px;
+            right: 16px;
+            width: 340px;
+            max-width: calc(100vw - 32px);
+            max-height: calc(100vh - 150px);
+            background: #0d1b2a;
+            border: 1px solid #4ade80;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            z-index: 200;
+            overflow: hidden;
+            display: none;
+        }
+
+        .usage-info-panel.visible {
+            display: block;
+        }
+
+        .usage-info-header {
+            background: #1b3a2a;
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #333;
+        }
+
+        .usage-info-title {
+            color: #4ade80;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .usage-info-close {
+            color: #888;
+            cursor: pointer;
+            font-size: 18px;
+            line-height: 1;
+        }
+
+        .usage-info-close:hover {
+            color: #ef4444;
+        }
+
+        .usage-info-body {
+            padding: 14px;
+            overflow-y: auto;
+            max-height: calc(100vh - 220px);
+            font-size: 12px;
+            line-height: 1.6;
+            color: #ccc;
+        }
+
+        .usage-info-body h3 {
+            color: #e94560;
+            font-size: 13px;
+            margin: 14px 0 8px 0;
+        }
+
+        .usage-info-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .usage-info-body table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 8px 0;
+            font-size: 11px;
+        }
+
+        .usage-info-body th, .usage-info-body td {
+            border: 1px solid #333;
+            padding: 6px 8px;
+            text-align: left;
+        }
+
+        .usage-info-body th {
+            background: #1a1a2e;
+            color: #e94560;
+        }
+
+        .usage-info-body ul {
+            margin: 8px 0;
+            padding-left: 18px;
+        }
+
+        .usage-info-body li {
+            margin: 4px 0;
+        }
+
+        .usage-info-body .note {
+            background: #1a1a2e;
+            border-left: 3px solid #f59e0b;
+            padding: 8px 12px;
+            margin: 10px 0;
+            font-size: 11px;
+            color: #f59e0b;
         }
 
         /* 요청 대기열 UI */
@@ -769,9 +983,10 @@
         @media screen and (max-width: 768px) {
             /* 헤더 */
             .header {
-                padding: 10px 12px;
+                padding: 8px 12px;
+                padding-top: calc(8px + env(safe-area-inset-top, 0px));
                 flex-wrap: wrap;
-                gap: 8px;
+                gap: 6px;
             }
 
             .header h1 {
@@ -938,7 +1153,8 @@
 
             /* 입력 영역 */
             .input-container {
-                padding: 12px;
+                padding: 10px 12px;
+                padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
             }
 
             .input-wrapper {
@@ -968,7 +1184,8 @@
         /* 더 작은 화면 (480px 이하) */
         @media screen and (max-width: 480px) {
             .header {
-                padding: 8px 10px;
+                padding: 6px 10px;
+                padding-top: calc(6px + env(safe-area-inset-top, 0px));
             }
 
             .header h1 {
@@ -978,6 +1195,26 @@
             .header-right {
                 width: 100%;
                 justify-content: space-between;
+            }
+
+            /* 사용량 UI 모바일 */
+            .usage-container {
+                font-size: 9px;
+                gap: 4px;
+            }
+
+            .usage-divider {
+                display: none;
+            }
+
+            .usage-label {
+                display: none;
+            }
+
+            .usage-info-icon {
+                width: 14px;
+                height: 14px;
+                font-size: 9px;
             }
 
             .sound-container label {
@@ -1054,7 +1291,8 @@
             }
 
             .input-container {
-                padding: 10px;
+                padding: 8px 10px;
+                padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
             }
 
             .input-wrapper {
@@ -1080,13 +1318,39 @@
                 padding: 6px 12px;
                 font-size: 12px;
             }
+
+            /* 대기열 */
+            .queue-container {
+                padding: 4px 10px;
+            }
+
+            .queue-title {
+                font-size: 11px;
+            }
         }
     </style>
 </head>
 <body>
+<div class="app-container">
     <div class="header">
         <h1>Chat Socket</h1>
         <div class="header-right">
+            <div class="usage-container" id="usageContainer">
+                <div class="usage-item">
+                    <span class="usage-label">블록:</span>
+                    <span id="usageBlock" class="usage-value">-</span>
+                </div>
+                <div class="usage-item">
+                    <span class="usage-label">리셋:</span>
+                    <span id="usageRemaining" class="usage-value">-</span>
+                </div>
+                <span class="usage-divider">|</span>
+                <div class="usage-item">
+                    <span class="usage-label">오늘:</span>
+                    <span id="usageToday" class="usage-value">-</span>
+                </div>
+                <span id="usageInfoIcon" class="usage-info-icon" title="사용량 제한 정보">ⓘ</span>
+            </div>
             <div class="sound-container">
                 <input type="checkbox" id="soundCheck" checked>
                 <label for="soundCheck">🔔</label>
@@ -1097,11 +1361,70 @@
             </div>
             <button class="clear-btn" id="clearBtn">/clear</button>
             <button class="restart-btn" id="restartBtn">서버 재시작</button>
+            <button class="clear-btn" id="refreshBtn">새로고침</button>
+            <button class="clear-btn install-btn" id="installBtn">📲 앱 설치</button>
             <div class="connection-status">
                 <span class="status-dot" id="statusDot"></span>
                 <span id="statusText">연결 중...</span>
             </div>
             <span class="server-url-display" id="serverUrlDisplay">localhost</span>
+        </div>
+    </div>
+
+    <!-- 사용량 정보 패널 -->
+    <div id="usageInfoPanel" class="usage-info-panel">
+        <div class="usage-info-header">
+            <span class="usage-info-title">📊 Claude Code 사용량 제한 정보</span>
+            <span id="usageInfoClose" class="usage-info-close">×</span>
+        </div>
+        <div class="usage-info-body">
+            <h3>플랜별 예상 사용량 (5시간 블록 기준)</h3>
+            <table>
+                <tr>
+                    <th>플랜</th>
+                    <th>월 요금</th>
+                    <th>예상 메시지 수</th>
+                </tr>
+                <tr>
+                    <td>Pro</td>
+                    <td>$20</td>
+                    <td>약 45개 (실제 10-40개)</td>
+                </tr>
+                <tr>
+                    <td>Max 5x</td>
+                    <td>$100</td>
+                    <td>약 225개 이상</td>
+                </tr>
+                <tr>
+                    <td>Max 20x</td>
+                    <td>$200</td>
+                    <td>약 900개 이상</td>
+                </tr>
+            </table>
+
+            <h3>5시간 롤링 윈도우</h3>
+            <ul>
+                <li>첫 메시지 전송 시 5시간 타이머 시작</li>
+                <li>5시간 후 다음 메시지 전송 시 리셋</li>
+                <li>Claude 웹/앱과 Claude Code가 동일한 한도 공유</li>
+            </ul>
+
+            <h3>주간 제한</h3>
+            <ul>
+                <li>Pro: 약 40-80시간</li>
+                <li>Max: 비례하여 증가</li>
+            </ul>
+
+            <div class="note">
+                ⚠️ 정확한 수치는 Anthropic에서 공식 공개하지 않습니다.<br>
+                실제 사용량은 대화 길이, 모델 선택(Opus vs Sonnet), 코드 복잡도에 따라 달라집니다.
+            </div>
+
+            <h3>추가 사용량</h3>
+            <ul>
+                <li>한도 초과 시 API 요금제로 전환 가능</li>
+                <li>표준 API 요금으로 계속 사용</li>
+            </ul>
         </div>
     </div>
 
@@ -1129,6 +1452,7 @@
             <button class="send-btn" id="sendBtn" disabled>전송</button>
         </div>
     </div>
+</div><!-- app-container 끝 -->
 
     <script>
         // USD to KRW 환율
@@ -1194,11 +1518,51 @@
             }
         });
 
+        // AudioContext 전역 인스턴스 (사용자 상호작용 후 활성화)
+        let audioContext = null;
+
+        // 사용자 상호작용 시 AudioContext 활성화
+        function initAudioContext() {
+            if (!audioContext) {
+                try {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    console.log('[오디오] AudioContext 초기화됨');
+                } catch (e) {
+                    console.warn('[오디오] AudioContext 초기화 실패:', e);
+                }
+            }
+            // suspended 상태면 resume
+            if (audioContext && audioContext.state === 'suspended') {
+                audioContext.resume().then(() => {
+                    console.log('[오디오] AudioContext 재개됨');
+                });
+            }
+        }
+
+        // 사용자 상호작용 이벤트에서 AudioContext 활성화
+        document.addEventListener('click', initAudioContext, { once: false });
+        document.addEventListener('keydown', initAudioContext, { once: false });
+
         // 대기열 완료 알림음
         function playQueueCompleteSound() {
-            if (!soundEnabled) return;
+            console.log('[알림음] 함수 호출됨, soundEnabled:', soundEnabled);
+            if (!soundEnabled) {
+                console.log('[알림음] 소리 비활성화됨');
+                return;
+            }
+
+            // AudioContext가 없거나 suspended면 재시도
+            if (!audioContext || audioContext.state === 'suspended') {
+                console.log('[알림음] AudioContext 없음 또는 suspended, 초기화 시도');
+                initAudioContext();
+            }
+
+            if (!audioContext) {
+                console.warn('[알림음] AudioContext를 사용할 수 없습니다');
+                return;
+            }
+
             try {
-                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 const gainNode = audioContext.createGain();
                 gainNode.connect(audioContext.destination);
                 gainNode.gain.value = 0.15;
@@ -1218,15 +1582,19 @@
                 osc2.type = 'sine';
                 osc2.start(audioContext.currentTime + 0.15);
                 osc2.stop(audioContext.currentTime + 0.3);
+
+                console.log('[알림음] 재생됨');
             } catch (e) {
-                // 오디오 재생 실패는 무시
+                console.error('[알림음] 재생 실패:', e);
             }
         }
 
         // 큐 상태 업데이트
         function updateQueueStatus(count, items) {
+            console.log(`[큐 상태] 이전: ${previousQueueCount}, 현재: ${count}`);
             // 대기열이 비워졌을 때 완료 알림 소리
             if (previousQueueCount > 0 && count === 0) {
+                console.log('[큐 상태] 대기열 완료! 알림음 재생');
                 playQueueCompleteSound();
             }
             previousQueueCount = count;
@@ -1724,7 +2092,111 @@
                 }
             } else if (type === 'queue_status') {
                 updateQueueStatus(data.count || 0, data.items || []);
+            } else if (type === 'usage_status') {
+                updateUsageStatus(data);
             }
+        }
+
+        // 사용량 상태 업데이트
+        function updateUsageStatus(data) {
+            const { today, totals, block } = data;
+            console.log('사용량 상태:', data);
+
+            const usageTodayEl = document.getElementById('usageToday');
+            const usageBlockEl = document.getElementById('usageBlock');
+            const usageRemainingEl = document.getElementById('usageRemaining');
+
+            // 오늘 사용량 표시
+            if (usageTodayEl) {
+                if (today && today.totalCost !== undefined) {
+                    const todayCostUsd = today.totalCost;
+                    const todayCostKrw = todayCostUsd * USD_TO_KRW;
+                    usageTodayEl.textContent = `$${todayCostUsd.toFixed(2)} (₩${Math.round(todayCostKrw).toLocaleString()})`;
+
+                    // 비용에 따른 색상 변경 (경고: $50 이상, 위험: $100 이상)
+                    usageTodayEl.classList.remove('warning', 'danger');
+                    if (todayCostUsd >= 100) {
+                        usageTodayEl.classList.add('danger');
+                    } else if (todayCostUsd >= 50) {
+                        usageTodayEl.classList.add('warning');
+                    }
+                } else {
+                    usageTodayEl.textContent = '$0.00';
+                }
+            }
+
+            // 5시간 블록 사용량 표시
+            if (usageBlockEl) {
+                if (block && block.costUSD !== undefined) {
+                    const blockCostUsd = block.costUSD;
+                    const blockCostKrw = blockCostUsd * USD_TO_KRW;
+                    usageBlockEl.textContent = `$${blockCostUsd.toFixed(2)} (₩${Math.round(blockCostKrw).toLocaleString()})`;
+                } else {
+                    usageBlockEl.textContent = '-';
+                }
+            }
+
+            // 남은 시간 표시
+            if (usageRemainingEl) {
+                if (block && block.remainingMinutes !== undefined) {
+                    const remaining = block.remainingMinutes;
+                    if (remaining > 60) {
+                        const hours = Math.floor(remaining / 60);
+                        const mins = remaining % 60;
+                        usageRemainingEl.textContent = `${hours}시간 ${mins}분`;
+                    } else {
+                        usageRemainingEl.textContent = `${remaining}분`;
+                    }
+
+                    // 남은 시간에 따른 색상 변경 (경고: 60분 이하, 위험: 30분 이하)
+                    usageRemainingEl.classList.remove('warning', 'danger');
+                    if (remaining <= 30) {
+                        usageRemainingEl.classList.add('danger');
+                    } else if (remaining <= 60) {
+                        usageRemainingEl.classList.add('warning');
+                    }
+                } else {
+                    usageRemainingEl.textContent = '-';
+                }
+            }
+        }
+
+        // 사용량 정보 패널 초기화
+        function initUsageInfoPanel() {
+            const infoIcon = document.getElementById('usageInfoIcon');
+            const infoPanel = document.getElementById('usageInfoPanel');
+            const closeBtn = document.getElementById('usageInfoClose');
+
+            if (!infoIcon || !infoPanel) return;
+
+            // 아이콘 클릭 시 토글
+            infoIcon.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isVisible = infoPanel.classList.contains('visible');
+                if (isVisible) {
+                    infoPanel.classList.remove('visible');
+                    infoIcon.classList.remove('active');
+                } else {
+                    infoPanel.classList.add('visible');
+                    infoIcon.classList.add('active');
+                }
+            });
+
+            // 닫기 버튼 클릭
+            if (closeBtn) {
+                closeBtn.addEventListener('click', () => {
+                    infoPanel.classList.remove('visible');
+                    infoIcon.classList.remove('active');
+                });
+            }
+
+            // 패널 외부 클릭 시 닫기
+            document.addEventListener('click', (e) => {
+                if (!infoPanel.contains(e.target) && !infoIcon.contains(e.target)) {
+                    infoPanel.classList.remove('visible');
+                    infoIcon.classList.remove('active');
+                }
+            });
         }
 
         // 메시지 전송
@@ -1777,6 +2249,35 @@
             }
         });
 
+        // URL에서 OAuth 파라미터 정리 (ngrok ERR_NGROK_3303 방지)
+        function cleanOAuthParams() {
+            const url = new URL(window.location.href);
+            const hasOAuthParams = url.searchParams.has('code') ||
+                                   url.searchParams.has('state') ||
+                                   url.searchParams.has('error');
+            if (hasOAuthParams) {
+                url.searchParams.delete('code');
+                url.searchParams.delete('state');
+                url.searchParams.delete('error');
+                url.searchParams.delete('error_description');
+                // 히스토리 교체 (뒤로가기 시 OAuth URL로 가지 않도록)
+                window.history.replaceState({}, document.title, url.pathname + url.search);
+                console.log('[OAuth] URL 파라미터 정리됨');
+                return true;
+            }
+            return false;
+        }
+
+        // 페이지 로드 시 OAuth 파라미터 자동 정리
+        cleanOAuthParams();
+
+        // 페이지 새로고침 버튼 (루트 URL로 완전 이동)
+        const refreshBtn = document.getElementById('refreshBtn');
+        refreshBtn.addEventListener('click', () => {
+            // 루트 URL로 이동 (모든 파라미터/경로 제거)
+            window.location.href = window.location.origin + '/';
+        });
+
         // 서버 재시작 버튼
         const restartBtn = document.getElementById('restartBtn');
         restartBtn.addEventListener('click', () => {
@@ -1792,8 +2293,21 @@
             }
         });
 
+        // 화면 회전 잠금 (세로 모드 고정)
+        function lockScreenOrientation() {
+            if (screen.orientation && screen.orientation.lock) {
+                screen.orientation.lock('portrait').then(() => {
+                    console.log('[화면] 세로 모드 잠금 성공');
+                }).catch((err) => {
+                    console.log('[화면] 세로 모드 잠금 실패 (브라우저에서는 PWA 설치 후 사용 가능):', err.message);
+                });
+            }
+        }
+
         // 초기화 - 자동 연결
         updateServerUrlDisplay();
+        initUsageInfoPanel();
+        lockScreenOrientation();
         connect();
 
         // Service Worker 등록 (PWA)
@@ -1822,14 +2336,13 @@
 
         // PWA 설치 프롬프트 처리
         let deferredPrompt;
+        const installBtn = document.getElementById('installBtn');
+
         window.addEventListener('beforeinstallprompt', (e) => {
             // 브라우저 기본 프롬프트 방지
             e.preventDefault();
             deferredPrompt = e;
-            console.log('앱 설치 가능');
-
-            // 설치 버튼 표시 (선택적)
-            // showInstallButton();
+            console.log('앱 설치 가능 (beforeinstallprompt)');
         });
 
         window.addEventListener('appinstalled', () => {
@@ -1837,9 +2350,13 @@
             deferredPrompt = null;
         });
 
-        // 설치 함수 (필요 시 호출)
+        // 설치 버튼 클릭 이벤트
+        installBtn.addEventListener('click', installApp);
+
+        // 설치 함수
         function installApp() {
             if (deferredPrompt) {
+                // beforeinstallprompt 이벤트가 있으면 네이티브 프롬프트 사용
                 deferredPrompt.prompt();
                 deferredPrompt.userChoice.then((choiceResult) => {
                     if (choiceResult.outcome === 'accepted') {
@@ -1849,6 +2366,21 @@
                     }
                     deferredPrompt = null;
                 });
+            } else {
+                // beforeinstallprompt 이벤트가 없으면 수동 설치 안내
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                const isAndroid = /Android/.test(navigator.userAgent);
+                const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
+                if (isStandalone) {
+                    alert('이미 앱으로 실행 중입니다.');
+                } else if (isIOS) {
+                    alert('iOS 설치 방법:\n\n1. Safari 하단의 공유 버튼(□↑)을 탭\n2. "홈 화면에 추가"를 선택\n3. "추가"를 탭');
+                } else if (isAndroid) {
+                    alert('Android 설치 방법:\n\n1. 브라우저 메뉴(⋮)를 탭\n2. "홈 화면에 추가" 또는 "앱 설치"를 선택');
+                } else {
+                    alert('앱 설치 방법:\n\n브라우저 주소창 오른쪽의 설치 아이콘(⊕)을 클릭하거나,\n브라우저 메뉴에서 "앱 설치"를 선택하세요.');
+                }
             }
         }
         window.installApp = installApp;

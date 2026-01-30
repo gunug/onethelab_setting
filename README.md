@@ -4,68 +4,65 @@
 
 ## 프로젝트 목적
 
-- **로컬 개발환경 원격 접근**: 로컬 PC에 Claude Code CLI 환경을 구축하고, 외부에서 소켓 통신으로 로컬의 개발환경을 활용
-- **실시간 통신**: Supabase Realtime Broadcast를 통해 외부 클라이언트와 로컬 Claude Code 간 실시간 메시지 전송
+- **로컬 개발환경 원격 접근**: 로컬 PC에 Claude Code CLI 환경을 구축하고, 외부에서 WebSocket 통신으로 접근
+- **실시간 통신**: Python 통합 서버(HTTP + WebSocket)를 통해 브라우저와 Claude CLI 간 실시간 메시지 전송
 - **웹 기반 인터페이스**: 어디서든 브라우저로 접속하여 Claude Code와 상호작용
 
 ## 시스템 구조
 
 ```
-┌─────────────────┐     Supabase Realtime     ┌─────────────────┐
-│  HTML 클라이언트  │ ◄──── (WebSocket) ────► │   Python 봇     │
-│  (외부 브라우저)  │       Broadcast          │   (로컬 PC)     │
-└─────────────────┘                           └────────┬────────┘
-                                                       │
-                                                       ▼
-                                              ┌─────────────────┐
-                                              │  Claude Code    │
-                                              │     CLI         │
-                                              └─────────────────┘
+[브라우저] ←── HTTP + WebSocket ──→ [Python 통합 서버] ←──CLI──→ [Claude]
+                                    (localhost:8765)
 ```
 
 ### 연동 방식
 
-1. **HTML 웹 클라이언트**: 외부에서 브라우저로 접속, Supabase Realtime에 연결
-2. **Python 채팅봇**: 로컬 PC에서 실행, Supabase Realtime과 Claude Code CLI를 연결
-3. **Supabase Realtime**: DB 없이 Broadcast 기능만 사용하여 WebSocket 통신 중계
-4. **Claude Code CLI**: 로컬에서 실행되며 프린트 모드(`-p -`)로 프롬프트 수신 및 응답
+1. **Python 통합 서버**: HTTP와 WebSocket을 동시에 제공하는 aiohttp 기반 서버
+2. **웹 인터페이스**: 서버의 `/` 경로에서 자동으로 index.html 제공
+3. **WebSocket 채팅**: `/ws` 경로로 실시간 양방향 통신
+4. **Claude Code CLI**: 프린트 모드(`-p -`)로 프롬프트 수신 및 응답
 
 ## 주요 기능
 
-- **실시간 통신**: Supabase Realtime Broadcast를 통한 WebSocket 기반 메시지 전송
+- **실시간 통신**: WebSocket 기반 양방향 메시지 전송
 - **Claude AI 통합**: Claude CLI를 활용한 AI 채팅봇 응답
 - **세션 관리**: 대화 컨텍스트를 유지하는 세션 기능 (`--session-id`, `-r` 옵션)
 - **진행 상황 표시**: Claude 응답 생성 과정을 실시간으로 확인 (도구 호출, 비용, 토큰)
 - **마크다운 렌더링**: 채팅 메시지에 마크다운 문법 지원
 - **요청 대기열**: 여러 요청을 순차 처리, 대기열 UI 표시
 - **사용량 모니터링**: 5시간 블록 사용량, 오늘 총 사용량, 남은 시간 표시
+- **PWA 지원**: 모바일에서 앱처럼 설치 가능
+- **ngrok 터널링**: 외부에서 접속 가능
 
 ## 프로젝트 구조
 
 ```
-├── chat_bot/           # Python 채팅봇 클라이언트
-│   ├── chat_bot.py     # Claude AI 연동 채팅봇
-│   └── .env            # Supabase 연결 정보 (git 추적 제외)
-├── chat_client/        # HTML/JS 웹 채팅 클라이언트
-│   ├── index.html      # 웹 채팅 인터페이스
-│   ├── chat.js         # 채팅 클라이언트 로직
-│   └── config.js       # Supabase 연결 정보 (git 추적 제외)
-├── supabase/           # Supabase 프로젝트 설정
-├── project_docs/       # 프로젝트 문서
-│   ├── install_list.md # 설치 절차 체크리스트
-│   ├── python_chat_bot.md
-│   ├── html_chat_client.md
-│   └── claude_code_tools.md
-├── run_chat_bot.bat    # Python 채팅봇 실행 스크립트
-└── CLAUDE.md           # Claude Code 작업 지침
+├── chat_socket/            # 로컬 WebSocket 채팅 서버
+│   ├── server.py           # Python 통합 서버 (HTTP + WebSocket)
+│   ├── index.html          # 웹 채팅 인터페이스
+│   ├── manifest.json       # PWA 설정
+│   ├── service-worker.js   # PWA 서비스 워커
+│   ├── icons/              # PWA 앱 아이콘
+│   ├── run.bat             # 로컬 실행 스크립트
+│   ├── run_ngrok.bat       # ngrok 외부 접속 스크립트
+│   └── run_server_loop.bat # 서버 재시작 루프 (내부용)
+├── project_docs/           # 프로젝트 문서
+│   ├── chat_socket.md      # Chat Socket 문서
+│   ├── claude_code_tools.md
+│   ├── python_install.md
+│   └── todo.md
+├── ChatSocket_Local.lnk    # 로컬 실행 바로가기
+├── ChatSocket_Ngrok.lnk    # ngrok 실행 바로가기
+├── CLAUDE.md               # Claude Code 작업 지침
+└── README.md               # 프로젝트 소개 문서
 ```
 
 ## 요구 사항
 
 - Python 3.8 이상
-- Node.js (Supabase CLI 설치용)
+- aiohttp 패키지
 - Claude CLI (`npm install -g @anthropic-ai/claude-code`)
-- Supabase 계정 및 프로젝트
+- (선택) ngrok - 외부 접속용
 
 ## 설치 및 실행
 
@@ -73,80 +70,54 @@
 
 ```bash
 # Python 패키지 설치
-pip install realtime supabase python-dotenv
+pip install aiohttp
 
 # Claude CLI 설치
 npm install -g @anthropic-ai/claude-code
 ```
 
-### 2. 환경 설정
+### 2. 실행
 
-**chat_bot/.env 파일 생성:**
-```
-SUPABASE_URL=your_supabase_url
-SUPABASE_ANON_KEY=your_anon_key
-CHANNEL_NAME=chat-room
-```
-
-**chat_client/config.js 파일 생성:**
-```javascript
-const SUPABASE_URL = 'your_supabase_url';
-const SUPABASE_ANON_KEY = 'your_anon_key';
-const CHANNEL_NAME = 'chat-room';
-```
-
-### 3. 실행
-
-**Python 채팅봇 실행 (로컬 PC):**
+**로컬 실행:**
 ```bash
-run_chat_bot.bat
-# 또는
-python chat_bot/chat_bot.py
+# ChatSocket_Local.lnk 더블클릭 또는
+python chat_socket/server.py
+# 브라우저에서 http://localhost:8765 접속
 ```
 
-**웹 클라이언트 (외부):**
-`chat_client/index.html` 파일을 웹 서버에 배포하거나 브라우저에서 열기
+**ngrok 외부 접속:**
+```bash
+# ChatSocket_Ngrok.lnk 더블클릭 또는
+python chat_socket/server.py  # 터미널 1
+ngrok http 8765               # 터미널 2
+# 브라우저에서 ngrok URL (https://xxxx.ngrok-free.app) 접속
+```
 
 ## 사용 방법
 
-1. 로컬 PC에서 Python 채팅봇을 실행합니다.
-2. 외부에서 웹 브라우저로 HTML 클라이언트에 접속합니다.
-3. 이름을 입력하고 채팅을 시작합니다.
-4. 메시지를 보내면 로컬의 Claude Code가 응답합니다.
-5. `/clear` 명령어로 세션을 초기화할 수 있습니다.
+1. Python 서버를 실행합니다.
+2. 브라우저에서 `http://localhost:8765` 또는 ngrok URL에 접속합니다.
+3. 메시지를 보내면 Claude Code가 응답합니다.
+4. `/clear` 명령어로 세션을 초기화할 수 있습니다.
 
 ## 기술 스택
 
-- **Backend**: Python, Supabase Realtime
+- **Backend**: Python, aiohttp (HTTP + WebSocket 통합 서버)
 - **Frontend**: HTML, CSS, JavaScript, marked.js
 - **AI**: Claude Code CLI (Anthropic)
-- **통신**: WebSocket (Supabase Broadcast)
+- **통신**: WebSocket
 
 ## 버전 히스토리
 
-### v3.0 (2026-01-30) - 안정성 강화
-- Python 봇: 토큰 자동 갱신 (45분마다), Heartbeat 모니터링 (30초마다)
-- Python 봇: 절전 모드 복귀 시 자동 재연결
-- HTML 클라이언트: 토큰 갱신 시 Realtime 자동 반영
+### v3.0 (2026-01-30) - chat_socket 단일화
+- 프로젝트 구조 정리 (chat_bot, chat_client, supabase 삭제)
+- chat_socket 로컬 WebSocket 서버만 사용
+- 바로가기 파일 추가 (ChatSocket_Local.lnk, ChatSocket_Ngrok.lnk)
 
-### v2.2 (2026-01-30) - Railway 배포
-- HTML 클라이언트 Railway 배포
-- 배포 URL: https://onethelabsetting-production.up.railway.app
-- Supabase Realtime Private Channel + RLS 적용
-
-### v2.0 (2026-01-30) - Supabase Auth + MFA
-- Supabase Auth 이메일/비밀번호 로그인
-- MFA 지원 (TOTP 2단계 인증)
-- 토큰 보안 강화 (Broadcast 노출 방지)
-
-### v1.1 (2026-01-30) - 세션 클리어
-- `/clear` 명령어로 Claude 세션 초기화
-- 자동 스크롤 기능
-
-### v1.0 (2026-01-29) - 초기 릴리즈
-- Python 채팅봇 + HTML 클라이언트 실시간 통신
-- Claude CLI 프린트 모드 (`-p -` stdin 방식)
-- 진행 상황 UI, Edit diff 표시, 마크다운 렌더링
+### v2.5 이전 버전 (deprecated)
+- Supabase Realtime 기반 버전
+- chat_bot (Python) + chat_client (HTML) 구조
+- Railway 배포, Supabase Auth + MFA 지원
 
 ## 라이선스
 
