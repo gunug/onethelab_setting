@@ -43,6 +43,8 @@
 │   ├── manifest.json       # PWA 설정
 │   ├── service-worker.js   # PWA 서비스 워커
 │   ├── icons/              # PWA 앱 아이콘
+│   ├── install.bat         # 의존성 설치 스크립트
+│   ├── config.bat          # ngrok 설정 스크립트
 │   ├── run.bat             # 로컬 실행 스크립트
 │   ├── run_ngrok.bat       # ngrok 외부 접속 스크립트
 │   └── run_server_loop.bat # 서버 재시작 루프 (내부용)
@@ -64,41 +66,110 @@
 - Claude CLI (`npm install -g @anthropic-ai/claude-code`)
 - (선택) ngrok - 외부 접속용
 
+## ngrok 설정 (외부 접속 시 필수)
+
+외부에서 접속하려면 ngrok 설정이 필요합니다.
+
+### 1. ngrok 가입 및 유료 플랜 구독
+
+1. [ngrok.com](https://ngrok.com)에서 계정 가입
+2. **유료 플랜 구독 필요** (Personal 플랜 이상)
+   - 고정 도메인 사용을 위해 필요
+   - 접속 계정 제한(OAuth) 기능 사용을 위해 필요
+   - 무료 플랜은 임시 URL만 제공되어 매번 URL이 변경됨
+
+### 2. config.bat 실행
+
+`config.bat`를 실행하여 다음 정보를 입력합니다:
+
+- **ngrok Auth Token**: ngrok 대시보드 → Your Authtoken에서 복사
+- **ngrok 도메인**: ngrok 대시보드 → Domains에서 생성한 고정 도메인 (예: `your-domain.ngrok-free.app`)
+- **OAuth 허용 계정**: 접속을 허용할 Google/GitHub 이메일 주소
+
+### 3. 유료 플랜이 필요한 이유
+
+| 기능 | 무료 플랜 | 유료 플랜 (Personal+) |
+|------|----------|---------------------|
+| 고정 도메인 | ❌ | ✅ |
+| OAuth 접속 제한 | ❌ | ✅ |
+| 동시 터널 수 | 1개 | 3개+ |
+
 ## 설치 및 실행
 
-### 1. 의존성 설치
+### 1. 프로젝트 다운로드
 
 ```bash
-# Python 패키지 설치
-pip install aiohttp
+git clone https://github.com/gunug/onethelab_setting.git
+cd onethelab_setting
+```
 
-# Claude CLI 설치
+### 2. 의존성 설치
+
+```bash
+# install.bat 실행 (Python, Node.js, ngrok, aiohttp, Claude CLI 자동 설치)
+cd chat_socket
+install.bat
+```
+
+또는 수동 설치:
+```bash
+pip install aiohttp
 npm install -g @anthropic-ai/claude-code
 ```
 
-### 2. 실행
+### 3. ngrok 설정 (외부 접속 시)
+
+```bash
+# config.bat 실행하여 ngrok 설정
+config.bat
+```
+
+입력 항목:
+- ngrok Auth Token
+- ngrok 도메인
+- OAuth 허용 계정 (이메일)
+
+### 4. 실행
 
 **로컬 실행:**
 ```bash
 # ChatSocket_Local.lnk 더블클릭 또는
 python chat_socket/server.py
-# 브라우저에서 http://localhost:8765 접속
 ```
+브라우저에서 http://localhost:8765 접속
 
 **ngrok 외부 접속:**
 ```bash
 # ChatSocket_Ngrok.lnk 더블클릭 또는
 python chat_socket/server.py  # 터미널 1
 ngrok http 8765               # 터미널 2
-# 브라우저에서 ngrok URL (https://xxxx.ngrok-free.app) 접속
 ```
+브라우저에서 ngrok URL (https://your-domain.ngrok-free.app) 접속
 
 ## 사용 방법
 
-1. Python 서버를 실행합니다.
-2. 브라우저에서 `http://localhost:8765` 또는 ngrok URL에 접속합니다.
-3. 메시지를 보내면 Claude Code가 응답합니다.
-4. `/clear` 명령어로 세션을 초기화할 수 있습니다.
+### 기본 사용
+
+1. 서버 실행 (`ChatSocket_Local.lnk` 또는 `ChatSocket_Ngrok.lnk`)
+2. 브라우저에서 접속
+   - 로컬: `http://localhost:8765`
+   - 외부: ngrok 도메인 URL
+3. 메시지 입력란에 질문/명령 입력
+4. Claude Code가 실시간으로 응답
+
+### 명령어
+
+| 명령어 | 설명 |
+|--------|------|
+| `/clear` | 세션 초기화 (대화 기록 삭제) |
+
+### 인터페이스 기능
+
+- **진행 상황 표시**: Claude가 사용하는 도구(파일 읽기, 편집 등) 실시간 확인
+- **요청 대기열**: 여러 요청을 큐에 추가하여 순차 처리
+- **사용량 모니터링**: 헤더에서 API 사용량 및 남은 시간 확인
+- **알림음**: 대기열 완료 시 알림 (토글 가능)
+- **서버 재시작**: 코드 변경 후 서버만 재시작 (ngrok URL 유지)
 
 ## 기술 스택
 

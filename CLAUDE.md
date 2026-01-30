@@ -24,6 +24,8 @@ chat_socket/            # 로컬 WebSocket 채팅 서버
   manifest.json         # PWA 설정
   service-worker.js     # PWA 서비스 워커
   icons/                # PWA 앱 아이콘
+  install.bat           # 의존성 설치 스크립트 (Python, Node.js, ngrok, aiohttp, Claude CLI)
+  config.bat            # ngrok 설정 스크립트 (authtoken, domain, OAuth)
   run.bat               # 로컬 실행 스크립트
   run_ngrok.bat         # ngrok 외부 접속 스크립트
   run_server_loop.bat   # 서버 재시작 루프 (내부용)
@@ -44,12 +46,29 @@ README.md               # 프로젝트 소개 문서
                                     (localhost:8765)
 ```
 
+## 설치 방법
+
+### 1. 프로젝트 다운로드
+```bash
+git clone https://github.com/gunug/onethelab_setting.git
+cd onethelab_setting/chat_socket
+```
+
+### 2. 의존성 설치
+```bash
+install.bat  # Python, Node.js, ngrok, aiohttp, Claude CLI 자동 설치
+```
+
+### 3. ngrok 설정 (외부 접속 시)
+```bash
+config.bat  # ngrok authtoken, domain, OAuth 설정
+```
+
 ## 실행 방법
 
 ### 로컬 실행
 ```bash
 # ChatSocket_Local.lnk 더블클릭 또는
-pip install aiohttp
 python chat_socket/server.py
 # 브라우저에서 http://localhost:8765 접속
 ```
@@ -57,10 +76,9 @@ python chat_socket/server.py
 ### ngrok 외부 접속
 ```bash
 # ChatSocket_Ngrok.lnk 더블클릭 또는
-python chat_socket/server.py  # 터미널 1
-ngrok http 8765               # 터미널 2
+run_ngrok.bat
 ```
-브라우저에서 ngrok URL (https://xxxx.ngrok-free.app) 접속 → 자동 연결
+브라우저에서 ngrok URL (https://your-domain.ngrok-free.app) 접속 → 자동 연결
 
 ## 주요 기능
 
