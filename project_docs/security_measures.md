@@ -8,6 +8,7 @@
 | OTP 브루트포스 | Supabase Auth 자체 시도 횟수 제한 | ✅ 완료 |
 | TOTP 비밀키 로컬 저장 | Supabase 서버에서 관리 | ✅ 완료 |
 | 시간 동기화 의존 | Supabase 서버 시간 사용 | ✅ 완료 |
+| ANON_KEY로 계정 생성 가능 | 대시보드에서 "Allow new users to sign up" OFF 설정 필요 | ⚠️ 수동 설정 필요 |
 
 ## 데이터 전송 보안
 
@@ -30,6 +31,14 @@
 | localStorage 토큰 탈취 (XSS) | CSP 헤더 설정 권장 | ⚠️ 미완료 |
 | ccusage 정보 노출 | 인증된 사용자만 조회 가능 | ⚠️ 수용 가능 |
 
+## 대시보드 수동 설정 필요 항목
+
+| 설정 위치 | 설정 항목 | 설정 값 |
+|-----------|----------|---------|
+| Authentication > Providers > Email | Allow new users to sign up | OFF |
+| Realtime > Settings | Allow public access | OFF (비활성화) |
+
 ## 버전 이력
 
+- **2026-01-30**: v2.1 ANON_KEY 계정 생성 위험 및 대시보드 설정 추가
 - **2026-01-30**: v2.0 기준 작성

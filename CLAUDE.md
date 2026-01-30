@@ -30,7 +30,8 @@ git update-index --no-assume-unchanged chat_bot/.env chat_client/config.js
 
 ```
 project_docs/
-  install_list.md        # 설치 절차 체크리스트
+  install_list.md        # 설치 절차 체크리스트 (개발자용)
+  user_install.md        # 사용자 설치 가이드 (패키징 배포용)
   python_chat_bot.md     # Python 채팅봇 문서
   html_chat_client.md    # HTML 클라이언트 문서
   claude_code_tools.md   # Claude Code 도구 목록 및 구현 상태
@@ -75,7 +76,10 @@ HTML 클라이언트 (Railway 배포) ←→ Supabase Realtime ←→ Python 봇
 
 ## 주요 기능
 
-- 자신의 채팅 메시지 로컬 출력 (Python, HTML/JS 모두 지원)
+- 메시지 서버 동기화: 모든 메시지를 서버(Supabase Broadcast)를 통해 수신하여 표시
+  - HTML 클라이언트: `broadcast: { self: true }` 설정으로 자기 메시지도 서버에서 수신
+  - 같은 계정 중복 접속 시 모든 탭에서 메시지 동기화
+  - Python 봇: 자신의 메시지 로컬 출력 유지
 - Python 채팅봇과 HTML 웹 클라이언트 간 실시간 통신
 - Python: Ctrl+C 또는 'quit' 입력으로 안전한 종료 처리
 - Python Claude 봇: 기본 이름 "Claude", 프린트 모드 (`-p -` 옵션, stdin으로 프롬프트 전달)
@@ -143,6 +147,11 @@ HTML 클라이언트 (Railway 배포) ←→ Supabase Realtime ←→ Python 봇
 - 로그아웃: 페이지 새로고침으로 모든 상태 완전 초기화
 
 ## 버전 정보
+
+### v2.3 (2026-01-30) - 메시지 서버 동기화
+- **Broadcast self 설정**: `broadcast: { self: true }`로 자기 메시지도 서버에서 수신
+- **중복 접속 동기화**: 같은 계정으로 여러 탭/브라우저 접속 시 메시지 동기화
+- **로컬 표시 제거**: sendMessage에서 로컬 메시지 표시 제거, 서버 응답으로 통일
 
 ### v2.2 (2026-01-30) - Railway 배포 (태그: v2.2)
 - **Railway 배포**: HTML 클라이언트를 Railway에 정적 파일로 배포

@@ -21,6 +21,8 @@ load_dotenv()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
+BOT_EMAIL = os.getenv("BOT_EMAIL")
+BOT_PASSWORD = os.getenv("BOT_PASSWORD")
 
 # USD to KRW 환율 (2026년 1월 기준)
 USD_TO_KRW = 1430
@@ -723,7 +725,26 @@ class ChatBot:
                 if self.supabase is None:
                     self.supabase = await create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
-                self.channel = self.supabase.realtime.channel(channel_name)
+                    # Supabase Auth 로그인 (Private Channel 접속용)
+                    if BOT_EMAIL and BOT_PASSWORD:
+                        print(f"[인증] 봇 계정으로 로그인 중... ({BOT_EMAIL})")
+                        auth_response = await self.supabase.auth.sign_in_with_password({
+                            "email": BOT_EMAIL,
+                            "password": BOT_PASSWORD
+                        })
+                        if auth_response.user:
+                            print(f"[인증] 로그인 성공: {auth_response.user.email}")
+                        else:
+                            print("[인증] 로그인 실패")
+                            return False
+                    else:
+                        print("[경고] BOT_EMAIL/BOT_PASSWORD 미설정 - 인증 없이 연결 시도")
+
+                # Private Channel 설정
+                self.channel = self.supabase.realtime.channel(
+                    channel_name,
+                    {"config": {"private": True}}
+                )
 
                 self.channel.on_broadcast(
                     event="message",

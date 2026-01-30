@@ -499,7 +499,10 @@ class ChatClient {
             }
 
             this.channel = this.supabase.channel(CHANNEL_NAME, {
-                config: { private: true }
+                config: {
+                    private: true,
+                    broadcast: { self: true }  // 자기 자신에게도 브로드캐스트
+                }
             });
 
             // 채널 이벤트 설정
@@ -594,8 +597,9 @@ class ChatClient {
 
     onMessage(data) {
         const { username, message } = data;
-        if (username === this.username) return;
-        this.addMessage(username, message, false);
+        // 자기 메시지 필터링 제거 - 서버에서 받은 모든 메시지 표시
+        const isMine = username === this.username;
+        this.addMessage(username, message, isMine);
     }
 
     onQueueStatus(data) {
@@ -1452,7 +1456,7 @@ class ChatClient {
                 }
             });
 
-            this.addMessage(this.username, message, true);
+            // 로컬 표시 제거 - broadcast: { self: true } 설정으로 서버에서 받아서 표시
             this.messageInput.value = '';
         } catch (error) {
             console.error('전송 오류:', error);
