@@ -1,0 +1,1857 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Chat Socket - Claude 채팅</title>
+
+    <!-- PWA 메타 태그 -->
+    <meta name="description" content="Claude AI와 실시간 채팅하는 웹 앱">
+    <meta name="theme-color" content="#e94560">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="ChatSocket">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="ChatSocket">
+    <meta name="msapplication-TileColor" content="#1a1a2e">
+    <meta name="msapplication-TileImage" content="/icons/icon-144x144.png">
+
+    <!-- PWA 매니페스트 -->
+    <link rel="manifest" href="/manifest.json">
+
+    <!-- 파비콘 및 앱 아이콘 -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/icon-16x16.png">
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-192x192.png">
+    <link rel="apple-touch-icon" sizes="167x167" href="/icons/icon-192x192.png">
+
+    <!-- 스플래시 스크린 (iOS) -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="apple-touch-startup-image" href="/icons/icon-512x512.png">
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #1a1a2e;
+            color: #eee;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 헤더 */
+        .header {
+            background-color: #16213e;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #0f3460;
+            flex-shrink: 0;
+        }
+
+        .header h1 {
+            font-size: 18px;
+            color: #e94560;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #888;
+        }
+
+        .status-dot.connected {
+            background-color: #4ade80;
+        }
+
+        .status-dot.disconnected {
+            background-color: #ef4444;
+        }
+
+        .clear-btn, .restart-btn {
+            padding: 6px 12px;
+            background-color: #0f3460;
+            color: #888;
+            border: 1px solid #0f3460;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .clear-btn:hover, .restart-btn:hover {
+            background-color: #1e3a5f;
+            color: #eee;
+        }
+
+        .restart-btn {
+            background-color: #4a1942;
+            border-color: #4a1942;
+        }
+
+        .restart-btn:hover {
+            background-color: #6b2c5c;
+        }
+
+        /* 채팅 영역 */
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .message {
+            margin-bottom: 16px;
+            max-width: 85%;
+        }
+
+        .message.system {
+            text-align: center;
+            max-width: 100%;
+        }
+
+        .message.system .content {
+            display: inline-block;
+            background-color: #0f3460;
+            color: #888;
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-size: 13px;
+        }
+
+        .message.user {
+            margin-left: auto;
+        }
+
+        .message .username {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 4px;
+        }
+
+        .message.user .username {
+            text-align: right;
+        }
+
+        .message .content {
+            padding: 10px 14px;
+            border-radius: 12px;
+            line-height: 1.6;
+            word-wrap: break-word;
+        }
+
+        .message.claude .content {
+            background-color: #0f3460;
+            border-bottom-left-radius: 4px;
+        }
+
+        .message.user .content {
+            background-color: #e94560;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.other .content {
+            background-color: #1e3a5f;
+            border-bottom-left-radius: 4px;
+        }
+
+        /* 마크다운 스타일 */
+        .message .content code {
+            background-color: rgba(0,0,0,0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+        }
+
+        .message .content pre {
+            background-color: rgba(0,0,0,0.3);
+            padding: 12px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 8px 0;
+        }
+
+        .message .content pre code {
+            background: none;
+            padding: 0;
+        }
+
+        .message .content ul, .message .content ol {
+            margin-left: 20px;
+            margin-top: 8px;
+            margin-bottom: 8px;
+        }
+
+        .message .content p {
+            margin-bottom: 8px;
+        }
+
+        .message .content p:last-child {
+            margin-bottom: 0;
+        }
+
+        /* 진행 상황 컨테이너 (메시지 내) */
+        .progress-container {
+            margin-bottom: 16px;
+            max-width: 100%;
+            background-color: #16213e;
+            border: 1px solid #0f3460;
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        .progress-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .progress-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #e94560, #0f3460);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+            color: white;
+        }
+
+        .progress-icon.spinning {
+            animation: spin 2s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .progress-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: #e94560;
+        }
+
+        .progress-model {
+            font-size: 12px;
+            color: #888;
+            margin-left: auto;
+            background-color: #0f3460;
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+
+        .progress-steps {
+            margin-bottom: 12px;
+        }
+
+        .progress-step {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #0f3460;
+        }
+
+        .progress-step:last-child {
+            border-bottom: none;
+        }
+
+        .step-indicator {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: bold;
+            flex-shrink: 0;
+            background-color: #0f3460;
+            color: #888;
+        }
+
+        .step-indicator.active {
+            background-color: #e94560;
+            color: white;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .step-indicator.completed {
+            background-color: #4ade80;
+            color: white;
+        }
+
+        .step-content {
+            flex: 1;
+            font-size: 13px;
+            color: #ccc;
+        }
+
+        .step-tool {
+            color: #4ade80;
+            font-weight: 500;
+        }
+
+        .step-detail {
+            color: #888;
+            margin-left: 4px;
+        }
+
+        /* Bash 명령어 스타일 */
+        .bash-command {
+            background-color: rgba(0,0,0,0.3);
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
+            color: #fbbf24;
+            margin-top: 6px;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+
+        .progress-bar-container {
+            height: 4px;
+            background-color: #0f3460;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background-color: #e94560;
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        .progress-stats {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            font-size: 12px;
+        }
+
+        .stat-item {
+            color: #888;
+        }
+
+        .stat-value {
+            color: #4ade80;
+            font-weight: 500;
+        }
+
+        /* Edit Diff 스타일 */
+        .edit-diff {
+            margin-top: 10px;
+            border: 1px solid #0f3460;
+            border-radius: 8px;
+            overflow: hidden;
+            font-size: 12px;
+        }
+
+        .edit-diff-header {
+            background-color: #0f3460;
+            padding: 8px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .edit-diff-header:hover {
+            background-color: #1e3a5f;
+        }
+
+        .edit-diff-file {
+            color: #4ade80;
+        }
+
+        .edit-diff-toggle {
+            color: #888;
+            font-size: 11px;
+        }
+
+        .edit-diff-content {
+            display: none;
+            padding: 12px;
+            background-color: rgba(0,0,0,0.2);
+        }
+
+        .edit-diff-content.expanded {
+            display: block;
+        }
+
+        .diff-old, .diff-new {
+            padding: 8px;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .diff-old {
+            background-color: rgba(239, 68, 68, 0.2);
+            border-left: 3px solid #ef4444;
+        }
+
+        .diff-new {
+            background-color: rgba(74, 222, 128, 0.2);
+            border-left: 3px solid #4ade80;
+        }
+
+        .diff-label {
+            font-size: 11px;
+            color: #888;
+            margin-bottom: 4px;
+        }
+
+        /* Write Content 스타일 */
+        .write-content {
+            margin-top: 10px;
+            border: 1px solid #0f3460;
+            border-radius: 8px;
+            overflow: hidden;
+            font-size: 12px;
+        }
+
+        .write-content-header {
+            background-color: #0f3460;
+            padding: 8px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .write-content-header:hover {
+            background-color: #1e3a5f;
+        }
+
+        .write-content-file {
+            color: #60a5fa;
+        }
+
+        .write-content-body {
+            display: none;
+            padding: 12px;
+            background-color: rgba(0,0,0,0.2);
+            font-family: 'Consolas', 'Monaco', monospace;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .write-content-body.expanded {
+            display: block;
+        }
+
+        /* Todo 스타일 */
+        .todo-list {
+            margin-top: 10px;
+            border: 1px solid #0f3460;
+            border-radius: 8px;
+            overflow: hidden;
+            font-size: 12px;
+        }
+
+        .todo-header {
+            background-color: #0f3460;
+            padding: 8px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .todo-header:hover {
+            background-color: #1e3a5f;
+        }
+
+        .todo-title {
+            color: #fbbf24;
+        }
+
+        .todo-body {
+            display: block;
+            padding: 12px;
+            background-color: rgba(0,0,0,0.2);
+        }
+
+        .todo-body.collapsed {
+            display: none;
+        }
+
+        .todo-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            padding: 4px 0;
+        }
+
+        .todo-icon {
+            flex-shrink: 0;
+        }
+
+        .todo-icon.pending { color: #888; }
+        .todo-icon.in_progress { color: #fbbf24; }
+        .todo-icon.completed { color: #4ade80; }
+
+        .todo-content.completed {
+            text-decoration: line-through;
+            color: #888;
+        }
+
+        /* 완료 통계 */
+        .completion-stats {
+            margin-top: 10px;
+            padding: 10px 12px;
+            background-color: rgba(74, 222, 128, 0.1);
+            border: 1px solid #4ade80;
+            border-radius: 8px;
+            font-size: 12px;
+        }
+
+        .stats-row {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .stats-item {
+            color: #888;
+        }
+
+        .stats-value {
+            color: #4ade80;
+            font-weight: 500;
+        }
+
+        /* 입력 영역 */
+        .input-container {
+            background-color: #16213e;
+            padding: 16px 20px;
+            border-top: 1px solid #0f3460;
+            flex-shrink: 0;
+        }
+
+        .input-wrapper {
+            display: flex;
+            gap: 12px;
+        }
+
+        .username-input {
+            width: 120px;
+            padding: 10px 14px;
+            border: 1px solid #0f3460;
+            border-radius: 8px;
+            background-color: #1a1a2e;
+            color: #eee;
+            font-size: 14px;
+        }
+
+        .message-input {
+            flex: 1;
+            padding: 10px 14px;
+            border: 1px solid #0f3460;
+            border-radius: 8px;
+            background-color: #1a1a2e;
+            color: #eee;
+            font-size: 14px;
+            resize: none;
+        }
+
+        .message-input:focus,
+        .username-input:focus {
+            outline: none;
+            border-color: #e94560;
+        }
+
+        .send-btn {
+            padding: 10px 24px;
+            background-color: #e94560;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .send-btn:hover {
+            background-color: #d63850;
+        }
+
+        .send-btn:disabled {
+            background-color: #666;
+            cursor: not-allowed;
+        }
+
+        /* 자동 스크롤 체크박스 */
+        .auto-scroll-container {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: #888;
+        }
+
+        .auto-scroll-container input {
+            cursor: pointer;
+        }
+
+        .server-url-display {
+            font-size: 11px;
+            color: #666;
+        }
+
+        /* 소리 알림 체크박스 */
+        .sound-container {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: #888;
+        }
+
+        .sound-container input {
+            cursor: pointer;
+        }
+
+        /* 요청 대기열 UI */
+        .queue-container {
+            background-color: #16213e;
+            border-bottom: 1px solid #0f3460;
+            padding: 8px 20px;
+            flex-shrink: 0;
+        }
+
+        .queue-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            padding: 4px 0;
+        }
+
+        .queue-header:hover {
+            background-color: rgba(255,255,255,0.05);
+            margin: 0 -8px;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .queue-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #888;
+        }
+
+        .queue-count {
+            background-color: #e94560;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: bold;
+            min-width: 20px;
+            text-align: center;
+        }
+
+        .queue-count.empty {
+            background-color: #4ade80;
+        }
+
+        .queue-toggle {
+            font-size: 11px;
+            color: #888;
+        }
+
+        .queue-body {
+            margin-top: 8px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .queue-body.collapsed {
+            display: none;
+        }
+
+        .queue-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .queue-item:last-child {
+            border-bottom: none;
+        }
+
+        .queue-item-number {
+            width: 20px;
+            height: 20px;
+            background-color: #0f3460;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            color: #888;
+            flex-shrink: 0;
+        }
+
+        .queue-item-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .queue-item-sender {
+            font-size: 11px;
+            color: #e94560;
+            margin-bottom: 2px;
+        }
+
+        .queue-item-message {
+            font-size: 12px;
+            color: #aaa;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .queue-empty {
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+            padding: 8px 0;
+        }
+
+        /* 모바일 반응형 스타일 */
+        @media screen and (max-width: 768px) {
+            /* 헤더 */
+            .header {
+                padding: 10px 12px;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            .header h1 {
+                font-size: 16px;
+            }
+
+            .header-right {
+                gap: 8px;
+                flex-wrap: wrap;
+                justify-content: flex-end;
+            }
+
+            .auto-scroll-container label,
+            .server-url-display {
+                display: none;
+            }
+
+            .auto-scroll-container {
+                gap: 4px;
+            }
+
+            .clear-btn, .restart-btn {
+                padding: 5px 8px;
+                font-size: 11px;
+            }
+
+            .connection-status {
+                font-size: 12px;
+                gap: 4px;
+            }
+
+            .status-dot {
+                width: 8px;
+                height: 8px;
+            }
+
+            /* 대기열 */
+            .queue-container {
+                padding: 6px 12px;
+            }
+
+            .queue-title {
+                font-size: 12px;
+            }
+
+            .queue-count {
+                font-size: 10px;
+                padding: 1px 6px;
+            }
+
+            /* 채팅 영역 */
+            .chat-container {
+                padding: 12px;
+            }
+
+            .message {
+                max-width: 95%;
+                margin-bottom: 12px;
+            }
+
+            .message .username {
+                font-size: 11px;
+            }
+
+            .message .content {
+                padding: 8px 12px;
+                font-size: 14px;
+                line-height: 1.5;
+            }
+
+            .message .content code {
+                font-size: 12px;
+                padding: 1px 4px;
+            }
+
+            .message .content pre {
+                padding: 8px;
+                font-size: 12px;
+            }
+
+            /* 진행 상황 UI */
+            .progress-container {
+                padding: 12px;
+            }
+
+            .progress-header {
+                gap: 8px;
+                margin-bottom: 10px;
+                flex-wrap: wrap;
+            }
+
+            .progress-icon {
+                width: 28px;
+                height: 28px;
+                font-size: 12px;
+            }
+
+            .progress-title {
+                font-size: 13px;
+            }
+
+            .progress-model {
+                font-size: 11px;
+            }
+
+            .progress-step {
+                padding: 6px 0;
+                gap: 8px;
+            }
+
+            .step-indicator {
+                width: 20px;
+                height: 20px;
+                font-size: 10px;
+            }
+
+            .step-content {
+                font-size: 12px;
+            }
+
+            .bash-command {
+                font-size: 11px;
+                padding: 4px 8px;
+            }
+
+            .progress-stats {
+                gap: 8px;
+                font-size: 11px;
+            }
+
+            /* Edit/Write/Todo UI */
+            .edit-diff,
+            .write-content,
+            .todo-list {
+                font-size: 11px;
+            }
+
+            .edit-diff-header,
+            .write-content-header,
+            .todo-header {
+                padding: 6px 10px;
+            }
+
+            .edit-diff-content,
+            .write-content-body,
+            .todo-body {
+                padding: 10px;
+            }
+
+            .diff-old, .diff-new {
+                padding: 6px;
+                font-size: 11px;
+            }
+
+            /* 완료 통계 */
+            .completion-stats {
+                padding: 8px 10px;
+                font-size: 11px;
+            }
+
+            .stats-row {
+                gap: 8px;
+            }
+
+            /* 입력 영역 */
+            .input-container {
+                padding: 12px;
+            }
+
+            .input-wrapper {
+                gap: 8px;
+                flex-wrap: wrap;
+            }
+
+            .username-input {
+                width: 80px;
+                padding: 8px 10px;
+                font-size: 13px;
+            }
+
+            .message-input {
+                flex: 1;
+                min-width: 0;
+                padding: 8px 10px;
+                font-size: 13px;
+            }
+
+            .send-btn {
+                padding: 8px 16px;
+                font-size: 13px;
+            }
+        }
+
+        /* 더 작은 화면 (480px 이하) */
+        @media screen and (max-width: 480px) {
+            .header {
+                padding: 8px 10px;
+            }
+
+            .header h1 {
+                font-size: 14px;
+            }
+
+            .header-right {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .sound-container label {
+                font-size: 14px;
+            }
+
+            .clear-btn, .restart-btn {
+                padding: 4px 6px;
+                font-size: 10px;
+            }
+
+            .connection-status {
+                font-size: 11px;
+            }
+
+            #statusText {
+                display: none;
+            }
+
+            .chat-container {
+                padding: 8px;
+            }
+
+            .message {
+                max-width: 100%;
+            }
+
+            .message .content {
+                padding: 6px 10px;
+                font-size: 13px;
+            }
+
+            .progress-container {
+                padding: 10px;
+            }
+
+            .progress-header {
+                gap: 6px;
+            }
+
+            .progress-icon {
+                width: 24px;
+                height: 24px;
+                font-size: 11px;
+            }
+
+            .progress-title {
+                font-size: 12px;
+                flex: 1;
+            }
+
+            .progress-model {
+                font-size: 10px;
+                padding: 1px 6px;
+            }
+
+            .step-indicator {
+                width: 18px;
+                height: 18px;
+                font-size: 9px;
+            }
+
+            .step-content {
+                font-size: 11px;
+            }
+
+            .progress-stats {
+                gap: 6px;
+                font-size: 10px;
+            }
+
+            .stat-item {
+                white-space: nowrap;
+            }
+
+            .input-container {
+                padding: 10px;
+            }
+
+            .input-wrapper {
+                gap: 6px;
+            }
+
+            .username-input {
+                width: 60px;
+                padding: 6px 8px;
+                font-size: 12px;
+            }
+
+            .message-input {
+                padding: 6px 8px;
+                font-size: 12px;
+            }
+
+            .message-input::placeholder {
+                font-size: 11px;
+            }
+
+            .send-btn {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Chat Socket</h1>
+        <div class="header-right">
+            <div class="sound-container">
+                <input type="checkbox" id="soundCheck" checked>
+                <label for="soundCheck">🔔</label>
+            </div>
+            <div class="auto-scroll-container">
+                <input type="checkbox" id="autoScrollCheck" checked>
+                <label for="autoScrollCheck">자동 스크롤</label>
+            </div>
+            <button class="clear-btn" id="clearBtn">/clear</button>
+            <button class="restart-btn" id="restartBtn">서버 재시작</button>
+            <div class="connection-status">
+                <span class="status-dot" id="statusDot"></span>
+                <span id="statusText">연결 중...</span>
+            </div>
+            <span class="server-url-display" id="serverUrlDisplay">localhost</span>
+        </div>
+    </div>
+
+    <div class="queue-container" id="queueContainer">
+        <div class="queue-header" id="queueHeader">
+            <div class="queue-title">
+                <span>📋 요청 대기열</span>
+                <span class="queue-count empty" id="queueCount">0</span>
+            </div>
+            <span class="queue-toggle" id="queueToggle">펼치기</span>
+        </div>
+        <div class="queue-body collapsed" id="queueBody">
+            <div class="queue-empty">대기 중인 요청이 없습니다.</div>
+        </div>
+    </div>
+
+    <div class="chat-container" id="chatContainer">
+        <!-- 메시지가 여기에 추가됨 -->
+    </div>
+
+    <div class="input-container">
+        <div class="input-wrapper">
+            <input type="text" class="username-input" id="usernameInput" placeholder="이름" value="User">
+            <input type="text" class="message-input" id="messageInput" placeholder="메시지를 입력하세요... (/clear: 세션 리셋)">
+            <button class="send-btn" id="sendBtn" disabled>전송</button>
+        </div>
+    </div>
+
+    <script>
+        // USD to KRW 환율
+        const USD_TO_KRW = 1430;
+
+        // 현재 페이지 URL을 기반으로 WebSocket URL 자동 생성
+        function getWebSocketUrl() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const host = window.location.host;
+            return `${protocol}//${host}/ws`;
+        }
+
+        let ws = null;
+        let wsUrl = getWebSocketUrl();
+        let isConnected = false;
+        let autoScroll = true;
+        let currentProgress = null;  // 현재 진행 UI 요소
+        let queueCollapsed = true;  // 큐 접힘 상태
+        let previousQueueCount = 0;  // 이전 큐 개수 (완료 알림용)
+        let soundEnabled = localStorage.getItem('queue_sound') !== 'false';  // 소리 알림 설정
+
+        // DOM 요소
+        const chatContainer = document.getElementById('chatContainer');
+        const messageInput = document.getElementById('messageInput');
+        const usernameInput = document.getElementById('usernameInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const clearBtn = document.getElementById('clearBtn');
+        const autoScrollCheck = document.getElementById('autoScrollCheck');
+        const serverUrlDisplay = document.getElementById('serverUrlDisplay');
+        const queueContainer = document.getElementById('queueContainer');
+        const queueHeader = document.getElementById('queueHeader');
+        const queueCount = document.getElementById('queueCount');
+        const queueBody = document.getElementById('queueBody');
+        const queueToggle = document.getElementById('queueToggle');
+        const soundCheck = document.getElementById('soundCheck');
+
+        // 자동 스크롤
+        autoScrollCheck.addEventListener('change', (e) => {
+            autoScroll = e.target.checked;
+            if (autoScroll) {
+                scrollToBottom();
+            }
+        });
+
+        // 소리 알림 설정
+        soundCheck.checked = soundEnabled;
+        soundCheck.addEventListener('change', (e) => {
+            soundEnabled = e.target.checked;
+            localStorage.setItem('queue_sound', soundEnabled ? 'true' : 'false');
+        });
+
+        // 큐 접기/펼치기
+        queueHeader.addEventListener('click', () => {
+            queueCollapsed = !queueCollapsed;
+            if (queueCollapsed) {
+                queueBody.classList.add('collapsed');
+                queueToggle.textContent = '펼치기';
+            } else {
+                queueBody.classList.remove('collapsed');
+                queueToggle.textContent = '접기';
+            }
+        });
+
+        // 대기열 완료 알림음
+        function playQueueCompleteSound() {
+            if (!soundEnabled) return;
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const gainNode = audioContext.createGain();
+                gainNode.connect(audioContext.destination);
+                gainNode.gain.value = 0.15;
+
+                // 첫 번째 음 (C5 - 523Hz)
+                const osc1 = audioContext.createOscillator();
+                osc1.connect(gainNode);
+                osc1.frequency.value = 523;
+                osc1.type = 'sine';
+                osc1.start(audioContext.currentTime);
+                osc1.stop(audioContext.currentTime + 0.15);
+
+                // 두 번째 음 (G5 - 784Hz)
+                const osc2 = audioContext.createOscillator();
+                osc2.connect(gainNode);
+                osc2.frequency.value = 784;
+                osc2.type = 'sine';
+                osc2.start(audioContext.currentTime + 0.15);
+                osc2.stop(audioContext.currentTime + 0.3);
+            } catch (e) {
+                // 오디오 재생 실패는 무시
+            }
+        }
+
+        // 큐 상태 업데이트
+        function updateQueueStatus(count, items) {
+            // 대기열이 비워졌을 때 완료 알림 소리
+            if (previousQueueCount > 0 && count === 0) {
+                playQueueCompleteSound();
+            }
+            previousQueueCount = count;
+
+            // 카운트 업데이트
+            queueCount.textContent = count;
+            if (count === 0) {
+                queueCount.classList.add('empty');
+            } else {
+                queueCount.classList.remove('empty');
+            }
+
+            // 본문 업데이트
+            if (items && items.length > 0) {
+                let itemsHtml = '';
+                items.forEach((item, index) => {
+                    itemsHtml += `
+                        <div class="queue-item">
+                            <div class="queue-item-number">${index + 1}</div>
+                            <div class="queue-item-content">
+                                <div class="queue-item-sender">${escapeHtml(item.sender)}</div>
+                                <div class="queue-item-message">${escapeHtml(item.message)}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                queueBody.innerHTML = itemsHtml;
+            } else {
+                queueBody.innerHTML = '<div class="queue-empty">대기 중인 요청이 없습니다.</div>';
+            }
+        }
+
+        function scrollToBottom() {
+            if (autoScroll) {
+                requestAnimationFrame(() => {
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                });
+            }
+        }
+
+        // 연결 상태 업데이트
+        function updateConnectionStatus(connected) {
+            isConnected = connected;
+            statusDot.className = 'status-dot ' + (connected ? 'connected' : 'disconnected');
+            statusText.textContent = connected ? '연결됨' : '연결 끊김';
+            sendBtn.disabled = !connected;
+        }
+
+        // HTML 이스케이프
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 도구 아이콘 매핑
+        function getToolIcon(tool) {
+            const icons = {
+                'Read': '📄',
+                'Edit': '✏️',
+                'Write': '📝',
+                'Bash': '💻',
+                'Grep': '🔍',
+                'Glob': '📁',
+                'WebFetch': '🌐',
+                'WebSearch': '🔎',
+                'TodoWrite': '📋',
+                'Task': '🔄',
+                'AskUserQuestion': '❓'
+            };
+            return icons[tool] || '🔧';
+        }
+
+        // 진행 UI 생성
+        function createProgressUI() {
+            // 기존 진행 UI 제거
+            if (currentProgress) {
+                currentProgress.remove();
+            }
+
+            const progressEl = document.createElement('div');
+            progressEl.className = 'progress-container';
+            progressEl.id = 'currentProgress';
+            progressEl.innerHTML = `
+                <div class="progress-header">
+                    <div class="progress-icon spinning">C</div>
+                    <div class="progress-title">Claude 처리 중...</div>
+                    <div class="progress-model"></div>
+                </div>
+                <div class="progress-steps"></div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" style="width: 10%"></div>
+                </div>
+                <div class="progress-stats"></div>
+            `;
+
+            chatContainer.appendChild(progressEl);
+            currentProgress = progressEl;
+            scrollToBottom();
+        }
+
+        // 진행 UI - 초기화
+        function updateProgressInit(data) {
+            if (!currentProgress) return;
+
+            const modelEl = currentProgress.querySelector('.progress-model');
+            const barEl = currentProgress.querySelector('.progress-bar');
+
+            // 모델명 간소화
+            let modelName = data.model || 'unknown';
+            if (modelName.includes('opus')) modelName = 'Opus';
+            else if (modelName.includes('sonnet')) modelName = 'Sonnet';
+            else if (modelName.includes('haiku')) modelName = 'Haiku';
+
+            modelEl.textContent = modelName;
+            barEl.style.width = '20%';
+        }
+
+        // 진행 UI - 도구 시작
+        function updateProgressToolStart(data) {
+            if (!currentProgress) return;
+
+            const stepsEl = currentProgress.querySelector('.progress-steps');
+            const barEl = currentProgress.querySelector('.progress-bar');
+
+            // 이전 step을 completed로 변경
+            const prevStep = stepsEl.querySelector('.progress-step.active');
+            if (prevStep) {
+                prevStep.classList.remove('active');
+                prevStep.classList.add('completed');
+                const indicator = prevStep.querySelector('.step-indicator');
+                indicator.classList.remove('active');
+                indicator.classList.add('completed');
+                indicator.textContent = '✓';
+            }
+
+            // 새 step 추가
+            const stepEl = document.createElement('div');
+            stepEl.className = 'progress-step active';
+            stepEl.dataset.turn = data.turn;
+
+            const toolIcon = getToolIcon(data.tool);
+            const tool = data.tool || 'unknown';
+            const detail = data.detail || '';
+
+            // Bash 명령어는 별도 표시
+            let bashHtml = '';
+            if (tool === 'Bash' && detail) {
+                bashHtml = `<div class="bash-command">${escapeHtml(detail)}</div>`;
+            }
+
+            // Edit/Write/Todo 정보
+            let editDiffHtml = '';
+            if (data.edit_info) {
+                editDiffHtml = createEditDiffHtml(data.edit_info, data.turn);
+            }
+
+            stepEl.innerHTML = `
+                <div class="step-indicator active">${data.turn}</div>
+                <div class="step-content">
+                    <span class="step-tool">${toolIcon} ${tool}</span>
+                    ${tool !== 'Bash' && detail ? `<span class="step-detail">- ${escapeHtml(detail)}</span>` : ''}
+                    ${bashHtml}
+                    ${editDiffHtml}
+                </div>
+            `;
+
+            stepsEl.appendChild(stepEl);
+            barEl.style.width = `${Math.min(20 + data.turn * 15, 85)}%`;
+            scrollToBottom();
+        }
+
+        // 진행 UI - 도구 종료
+        function updateProgressToolEnd(data) {
+            if (!currentProgress) return;
+
+            const stepEl = currentProgress.querySelector(`.progress-step[data-turn="${data.turn}"]`);
+            if (stepEl) {
+                stepEl.classList.remove('active');
+                stepEl.classList.add('completed');
+                const indicator = stepEl.querySelector('.step-indicator');
+                indicator.classList.remove('active');
+                indicator.classList.add('completed');
+                indicator.textContent = '✓';
+
+                if (data.lines) {
+                    const content = stepEl.querySelector('.step-content');
+                    const lineInfo = document.createElement('span');
+                    lineInfo.className = 'step-detail';
+                    lineInfo.textContent = ` (${data.lines}줄)`;
+                    content.appendChild(lineInfo);
+                }
+            }
+        }
+
+        // 진행 UI - 완료
+        function updateProgressComplete(data) {
+            if (!currentProgress) return;
+
+            const iconEl = currentProgress.querySelector('.progress-icon');
+            const titleEl = currentProgress.querySelector('.progress-title');
+            const barEl = currentProgress.querySelector('.progress-bar');
+            const statsEl = currentProgress.querySelector('.progress-stats');
+
+            iconEl.classList.remove('spinning');
+            iconEl.textContent = '✓';
+            iconEl.style.background = '#4ade80';
+            titleEl.textContent = 'Claude 완료';
+            titleEl.style.color = '#4ade80';
+            barEl.style.width = '100%';
+
+            // 원화 계산
+            const costKrw = data.cost_krw || (data.cost_usd * USD_TO_KRW);
+
+            statsEl.innerHTML = `
+                <div class="stat-item">
+                    <span>⏱️ 시간:</span>
+                    <span class="stat-value">${(data.duration_sec || 0).toFixed(1)}초</span>
+                </div>
+                <div class="stat-item">
+                    <span>💰 비용:</span>
+                    <span class="stat-value">$${(data.cost_usd || 0).toFixed(4)} (₩${Math.round(costKrw).toLocaleString()})</span>
+                </div>
+                <div class="stat-item">
+                    <span>📊 토큰:</span>
+                    <span class="stat-value">${(data.input_tokens || 0).toLocaleString()}/${(data.output_tokens || 0).toLocaleString()}</span>
+                </div>
+                <div class="stat-item">
+                    <span>🔄 턴:</span>
+                    <span class="stat-value">${data.turns || 0}</span>
+                </div>
+            `;
+
+            // 마지막 active step 완료 처리
+            const lastStep = currentProgress.querySelector('.progress-step.active');
+            if (lastStep) {
+                lastStep.classList.remove('active');
+                lastStep.classList.add('completed');
+                const indicator = lastStep.querySelector('.step-indicator');
+                indicator.classList.remove('active');
+                indicator.classList.add('completed');
+                indicator.textContent = '✓';
+            }
+
+            currentProgress = null;
+        }
+
+        // 진행 UI - 오류
+        function updateProgressError(data) {
+            if (!currentProgress) return;
+
+            const iconEl = currentProgress.querySelector('.progress-icon');
+            const titleEl = currentProgress.querySelector('.progress-title');
+            const barEl = currentProgress.querySelector('.progress-bar');
+
+            iconEl.classList.remove('spinning');
+            iconEl.textContent = '!';
+            iconEl.style.background = '#ef4444';
+            titleEl.textContent = `오류: ${data.message || '알 수 없는 오류'}`;
+            titleEl.style.color = '#ef4444';
+            barEl.style.width = '100%';
+            barEl.style.background = '#ef4444';
+
+            currentProgress = null;
+        }
+
+        // Edit Diff HTML 생성
+        function createEditDiffHtml(editInfo, turn) {
+            const id = `edit-${turn}-${Date.now()}`;
+
+            if (editInfo.type === 'edit') {
+                return `
+                    <div class="edit-diff" id="${id}">
+                        <div class="edit-diff-header" onclick="toggleExpand('${id}', '.edit-diff-content')">
+                            <span class="edit-diff-file">📝 ${escapeHtml(editInfo.file || '파일')}</span>
+                            <span class="edit-diff-toggle">클릭하여 펼치기</span>
+                        </div>
+                        <div class="edit-diff-content">
+                            <div class="diff-label">이전:</div>
+                            <div class="diff-old">${escapeHtml(editInfo.old || '(없음)')}</div>
+                            <div class="diff-label">이후:</div>
+                            <div class="diff-new">${escapeHtml(editInfo.new || '(없음)')}</div>
+                        </div>
+                    </div>
+                `;
+            } else if (editInfo.type === 'write') {
+                return `
+                    <div class="write-content" id="${id}">
+                        <div class="write-content-header" onclick="toggleExpand('${id}', '.write-content-body')">
+                            <span class="write-content-file">📄 ${escapeHtml(editInfo.file || '파일')}</span>
+                            <span class="edit-diff-toggle">클릭하여 펼치기</span>
+                        </div>
+                        <div class="write-content-body">${escapeHtml(editInfo.content || '(빈 파일)')}</div>
+                    </div>
+                `;
+            } else if (editInfo.type === 'todo') {
+                const todos = editInfo.todos || [];
+                const todoItems = todos.map(todo => {
+                    const status = todo.status || 'pending';
+                    let icon = '○';
+                    if (status === 'in_progress') icon = '◐';
+                    else if (status === 'completed') icon = '✓';
+                    const contentClass = status === 'completed' ? 'todo-content completed' : 'todo-content';
+                    return `
+                        <div class="todo-item">
+                            <span class="todo-icon ${status}">${icon}</span>
+                            <span class="${contentClass}">${escapeHtml(todo.content || '')}</span>
+                        </div>
+                    `;
+                }).join('');
+
+                return `
+                    <div class="todo-list" id="${id}">
+                        <div class="todo-header" onclick="toggleTodoExpand('${id}')">
+                            <span class="todo-title">📋 할 일 목록 (${todos.length}개)</span>
+                            <span class="edit-diff-toggle">클릭하여 접기</span>
+                        </div>
+                        <div class="todo-body">${todoItems}</div>
+                    </div>
+                `;
+            }
+            return '';
+        }
+
+        // 접기/펼치기 토글
+        function toggleExpand(parentId, contentSelector) {
+            const parent = document.getElementById(parentId);
+            if (!parent) return;
+
+            const content = parent.querySelector(contentSelector);
+            const toggle = parent.querySelector('.edit-diff-toggle');
+            if (!content) return;
+
+            if (content.classList.contains('expanded')) {
+                content.classList.remove('expanded');
+                if (toggle) toggle.textContent = '클릭하여 펼치기';
+            } else {
+                content.classList.add('expanded');
+                if (toggle) toggle.textContent = '클릭하여 접기';
+            }
+        }
+
+        // 전역에서 접근 가능하도록
+        window.toggleExpand = toggleExpand;
+
+        // TodoWrite 전용 토글 (기본 열림, collapsed로 접기)
+        function toggleTodoExpand(parentId) {
+            const parent = document.getElementById(parentId);
+            if (!parent) return;
+
+            const content = parent.querySelector('.todo-body');
+            const toggle = parent.querySelector('.edit-diff-toggle');
+            if (!content) return;
+
+            if (content.classList.contains('collapsed')) {
+                content.classList.remove('collapsed');
+                if (toggle) toggle.textContent = '클릭하여 접기';
+            } else {
+                content.classList.add('collapsed');
+                if (toggle) toggle.textContent = '클릭하여 펼치기';
+            }
+        }
+        window.toggleTodoExpand = toggleTodoExpand;
+
+        // 완료 통계 HTML 생성
+        function createStatsHtml(data) {
+            const costKrw = Math.round(data.cost_krw || (data.cost_usd * USD_TO_KRW) || 0);
+            return `
+                <div class="completion-stats">
+                    <div class="stats-row">
+                        <span class="stats-item">⏱️ <span class="stats-value">${(data.duration_sec || 0).toFixed(1)}초</span></span>
+                        <span class="stats-item">💰 <span class="stats-value">$${(data.cost_usd || 0).toFixed(4)}</span> (₩${costKrw.toLocaleString()})</span>
+                        <span class="stats-item">📊 <span class="stats-value">${(data.input_tokens || 0).toLocaleString()}/${(data.output_tokens || 0).toLocaleString()}</span> 토큰</span>
+                        <span class="stats-item">🔄 <span class="stats-value">${data.turns || 0}</span> 턴</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 메시지 추가
+        function addMessage(username, message, type = 'other', extra = null) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+
+            if (type === 'system') {
+                messageDiv.innerHTML = `<span class="content">${escapeHtml(message)}</span>`;
+            } else {
+                // 마크다운 렌더링
+                let renderedMessage = message;
+                try {
+                    renderedMessage = marked.parse(message);
+                } catch (e) {
+                    renderedMessage = escapeHtml(message);
+                }
+
+                let extraHtml = '';
+                if (extra) {
+                    if (extra.edit_info) {
+                        extraHtml += createEditDiffHtml(extra.edit_info, Date.now());
+                    }
+                    if (extra.stats) {
+                        extraHtml += createStatsHtml(extra.stats);
+                    }
+                }
+
+                messageDiv.innerHTML = `
+                    <div class="username">${escapeHtml(username)}</div>
+                    <div class="content">${renderedMessage}</div>
+                    ${extraHtml}
+                `;
+            }
+
+            chatContainer.appendChild(messageDiv);
+            scrollToBottom();
+        }
+
+        // 서버 URL 표시 업데이트
+        function updateServerUrlDisplay() {
+            serverUrlDisplay.textContent = window.location.host;
+        }
+
+        // WebSocket 연결
+        function connect() {
+            ws = new WebSocket(wsUrl);
+            updateServerUrlDisplay();
+
+            ws.onopen = () => {
+                console.log('WebSocket 연결됨:', wsUrl);
+                updateConnectionStatus(true);
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket 연결 끊김');
+                updateConnectionStatus(false);
+                addMessage('', '연결이 끊어졌습니다. 페이지를 새로고침하세요.', 'system');
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket 오류:', error);
+                updateConnectionStatus(false);
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    handleMessage(data);
+                } catch (e) {
+                    console.error('메시지 파싱 오류:', e);
+                }
+            };
+        }
+
+        // 메시지 처리
+        function handleMessage(data) {
+            const type = data.type || 'message';
+
+            if (type === 'system') {
+                addMessage('', data.message, 'system');
+            } else if (type === 'message') {
+                const username = data.username || '익명';
+                const message = data.message || '';
+                const myUsername = usernameInput.value.trim();
+
+                // 메시지 타입 결정
+                let msgType = 'other';
+                if (username === 'Claude') {
+                    msgType = 'claude';
+                } else if (username === myUsername) {
+                    msgType = 'user';
+                }
+
+                addMessage(username, message, msgType);
+            } else if (type === 'progress') {
+                const progressType = data.progress_type;
+
+                switch (progressType) {
+                    case 'start':
+                        createProgressUI();
+                        break;
+                    case 'init':
+                        updateProgressInit(data);
+                        break;
+                    case 'tool_start':
+                        updateProgressToolStart(data);
+                        break;
+                    case 'tool_end':
+                        updateProgressToolEnd(data);
+                        break;
+                    case 'complete':
+                        updateProgressComplete(data);
+                        break;
+                    case 'error':
+                        updateProgressError(data);
+                        break;
+                }
+            } else if (type === 'queue_status') {
+                updateQueueStatus(data.count || 0, data.items || []);
+            }
+        }
+
+        // 메시지 전송
+        function sendMessage() {
+            const message = messageInput.value.trim();
+            const username = usernameInput.value.trim() || '익명';
+
+            if (!message || !isConnected) return;
+
+            // /clear 명령어 처리
+            if (message === '/clear') {
+                ws.send(JSON.stringify({
+                    type: 'command',
+                    command: 'clear'
+                }));
+                // 채팅 내역 초기화
+                chatContainer.innerHTML = '';
+                currentProgress = null;
+                messageInput.value = '';
+                return;
+            }
+
+            ws.send(JSON.stringify({
+                type: 'message',
+                username: username,
+                message: message
+            }));
+
+            messageInput.value = '';
+        }
+
+        // 이벤트 리스너
+        sendBtn.addEventListener('click', sendMessage);
+
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        clearBtn.addEventListener('click', () => {
+            if (isConnected) {
+                ws.send(JSON.stringify({
+                    type: 'command',
+                    command: 'clear'
+                }));
+                chatContainer.innerHTML = '';
+                currentProgress = null;
+            }
+        });
+
+        // 서버 재시작 버튼
+        const restartBtn = document.getElementById('restartBtn');
+        restartBtn.addEventListener('click', () => {
+            if (!isConnected) {
+                alert('서버에 연결되어 있지 않습니다.');
+                return;
+            }
+            if (confirm('서버를 재시작하시겠습니까?\n\n코드 변경 사항이 반영됩니다.\n연결이 끊어지면 페이지를 새로고침하세요.')) {
+                ws.send(JSON.stringify({
+                    type: 'command',
+                    command: 'restart'
+                }));
+            }
+        });
+
+        // 초기화 - 자동 연결
+        updateServerUrlDisplay();
+        connect();
+
+        // Service Worker 등록 (PWA)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then((registration) => {
+                        console.log('ServiceWorker 등록 성공:', registration.scope);
+
+                        // 업데이트 확인
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    // 새 버전 사용 가능
+                                    console.log('새 버전이 사용 가능합니다. 페이지를 새로고침하세요.');
+                                }
+                            });
+                        });
+                    })
+                    .catch((error) => {
+                        console.log('ServiceWorker 등록 실패:', error);
+                    });
+            });
+        }
+
+        // PWA 설치 프롬프트 처리
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // 브라우저 기본 프롬프트 방지
+            e.preventDefault();
+            deferredPrompt = e;
+            console.log('앱 설치 가능');
+
+            // 설치 버튼 표시 (선택적)
+            // showInstallButton();
+        });
+
+        window.addEventListener('appinstalled', () => {
+            console.log('앱이 설치되었습니다!');
+            deferredPrompt = null;
+        });
+
+        // 설치 함수 (필요 시 호출)
+        function installApp() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('사용자가 설치를 수락했습니다.');
+                    } else {
+                        console.log('사용자가 설치를 거부했습니다.');
+                    }
+                    deferredPrompt = null;
+                });
+            }
+        }
+        window.installApp = installApp;
+    </script>
+</body>
+</html>

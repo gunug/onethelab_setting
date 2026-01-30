@@ -39,13 +39,16 @@ project_docs/
   security_measures.md   # 보안 조치 문서
   supabase_realtime.md   # Supabase Realtime 보안 설정 문서
   railway.md             # Railway 배포 가이드
+  chat_socket.md         # 로컬 WebSocket 채팅 문서
+  client_to_socket.md    # chat_client → chat_socket 이전 TODO
   todo.md                # 할 일 목록
 install_tool/            # 설치 도우미 프로그램
   install.bat            # 설치 시작 배치파일 (Python 설치 지원)
   installer.py           # 웹 UI 기반 설치 마법사 (개발 중)
 supabase/                # Supabase 프로젝트 설정
-chat_bot/               # Python 채팅봇 클라이언트
-chat_client/            # HTML/JS 웹 채팅 클라이언트
+chat_bot/               # Python 채팅봇 클라이언트 (Supabase 버전)
+chat_client/            # HTML/JS 웹 채팅 클라이언트 (Supabase 버전)
+chat_socket/            # 로컬 WebSocket 채팅 (Supabase 불필요)
 run_chat_bot.bat         # Python 채팅봇 실행 스크립트
 README.md                # 프로젝트 소개 문서
 ```
@@ -76,6 +79,71 @@ HTML 클라이언트 (Railway 배포) ←→ Supabase Realtime ←→ Python 봇
 
 - **HTML 클라이언트**: Railway에 정적 파일로 배포
 - **Python 봇**: Claude Code CLI가 설치된 개발자 PC에서 로컬 실행 (배포 불필요)
+
+## Chat Socket (로컬 WebSocket 버전)
+
+상세 내용: [project_docs/chat_socket.md](project_docs/chat_socket.md)
+
+Supabase/Railway 없이 로컬에서 동작하는 경량 버전. HTTP + WebSocket 통합 서버.
+
+```
+[브라우저] ←── HTTP + WebSocket ──→ [Python 통합 서버] ←──CLI──→ [Claude]
+                                    (localhost:8765)
+```
+
+### 실행 방법
+```bash
+# run.bat 더블클릭 또는
+pip install aiohttp
+python chat_socket/server.py
+# 브라우저에서 http://localhost:8765 접속
+```
+
+### ngrok 외부 접속
+```bash
+# run_ngrok.bat 더블클릭 또는
+python chat_socket/server.py  # 터미널 1
+ngrok http 8765               # 터미널 2
+```
+브라우저에서 ngrok URL (https://xxxx.ngrok-free.app) 접속 → 자동 연결
+
+### 주요 기능
+- HTTP + WebSocket 통합 서버 (aiohttp, 포트 8765)
+- `/` : index.html 자동 제공
+- `/ws` : WebSocket 채팅 연결
+- Claude CLI 스트리밍 연동
+- 진행 상황 UI (chat_client와 동일한 방식)
+  - 메시지 영역 내 동적 생성 (헤더 고정 패널 아님)
+  - 도구별 step 표시 (턴 번호, 아이콘, 완료 체크 ✓)
+  - 스피닝 아이콘 + 프로그레스 바 애니메이션
+  - 모델명 표시 (Opus/Sonnet/Haiku)
+- Edit/Write/TodoWrite 도구 UI
+  - Edit: 변경 전/후 diff 비교 (접기/펼치기)
+  - Write: 파일 내용 표시 (접기/펼치기)
+  - TodoWrite: 할 일 목록 (○ 대기/◐ 진행중/✓ 완료)
+  - Bash: 명령어 별도 스타일 블록
+- 완료 통계 (시간, 비용 USD/KRW, 토큰, 턴)
+- /clear 명령어 (세션 리셋)
+- 마크다운 렌더링, 자동 스크롤
+- 모바일 반응형 UI (미디어 쿼리: 768px, 480px 브레이크포인트)
+- ngrok 터널링 지원 (URL 접속만으로 자동 연결)
+- 요청 대기열 기능 (chat_client와 동일)
+  - 여러 요청을 큐에 추가하여 순차 처리
+  - 헤더 아래 대기열 UI (요청 수, 목록, 접기/펼치기)
+  - 대기열 완료 시 알림음 (Web Audio API, 토글 지원)
+- 서버 재시작 기능
+  - "서버 재시작" 버튼 클릭 → Python 서버만 재시작
+  - 코드 변경 사항 즉시 반영 (Python 인터프리터 특성)
+  - ngrok은 유지되어 URL 변경 없음
+  - run.bat/run_server_loop.bat이 exit code 100 감지하여 자동 재시작
+  - run_ngrok.bat: run_server_loop.bat을 별도 창에서 실행하여 재시작 지원
+- PWA (Progressive Web App) 지원
+  - 안드로이드/iOS 홈 화면에 앱으로 설치 가능
+  - manifest.json: 앱 이름, 아이콘, 테마색 정의
+  - service-worker.js: 오프라인 캐싱, 네트워크 우선 전략
+  - 앱 아이콘: 다양한 크기 PNG (16x16 ~ 512x512)
+  - iOS Safari: apple-mobile-web-app 메타 태그 지원
+  - 설치 프롬프트: beforeinstallprompt 이벤트 처리
 
 ## 주요 기능
 
@@ -253,3 +321,7 @@ install_tool/
 - [x] Supabase CLI 연동: 프로젝트 목록/API 키 자동 가져오기
 - [x] Supabase CLI 프로젝트 생성: 조직 선택, 프로젝트명, DB 비밀번호, 리전 설정
 - [x] 4단계 가이드: 프로젝트 생성, 사용자 계정, 봇 계정 생성 안내
+- [x] Supabase CLI 로그인: 로그인 버튼, 상태 확인, 자동 상태 체크
+- [x] Authentication 설정 안내: Allow new users to sign up, Confirm email 옵션 설명
+- [x] 설치 완료 화면: 채팅봇 실행 방법 안내 (run_chat_bot.bat 또는 python 명령어)
+- [x] 오류 처리 개선: 포트 충돌, 예외 발생 시 에러 메시지 표시 및 창 유지
