@@ -9,8 +9,9 @@ echo Domain: https://onethelab.ngrok.dev
 echo OAuth: gunug850@gmail.com
 echo(
 echo [1] Starting server...
-REM Start server in separate window with restart loop
-start "Chat Socket Server" /D "%~dp0" cmd /k "run_server_loop.bat"
+REM Start server in separate window with restart loop (parent directory)
+REM Use absolute path for bat file, /D sets working directory
+start "Chat Socket Server" /D "%~dp0.." cmd /k ""%~dp0run_server_loop.bat""
 echo [Wait] 3 seconds...
 timeout /t 3 /nobreak > nul
 echo [2] Starting ngrok tunnel...

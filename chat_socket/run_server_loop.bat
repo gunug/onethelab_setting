@@ -1,11 +1,15 @@
 @echo off
 title Chat Socket Server
 
+REM Change to parent directory (onethelab_setting) for Claude CLI working directory
+cd /d "%~dp0.."
+
 :restart_loop
 echo Starting server...
 echo Access: http://localhost:8765
+echo Working directory: %cd%
 echo.
-python "%~dp0server.py"
+python "chat_socket/server.py"
 
 REM Exit code 100 = restart request
 if %errorlevel% == 100 (

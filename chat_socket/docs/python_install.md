@@ -27,6 +27,8 @@
 - [x] Supabase CLI 연동: 프로젝트 목록/API 키 자동 가져오기
 - [x] Supabase CLI 프로젝트 생성: 조직 선택, 프로젝트명, DB 비밀번호, 리전 설정
 - [x] 4단계 가이드: 프로젝트 생성, 사용자 계정, 봇 계정 생성 안내
+- [x] Supabase CLI 로그인: 로그인 상태 확인 및 로그인 버튼
+- [x] Authentication 설정 안내: Allow new users to sign up, Confirm email 옵션 설명
 
 ### 5단계: 설치 완료
 - [x] 채팅봇 실행 버튼
@@ -68,6 +70,12 @@
 - Supabase CLI 프로젝트 생성: 조직 선택, 프로젝트명, DB 비밀번호, 리전 설정 (supabase projects create)
 - Supabase 조직 목록 가져오기 (supabase orgs list)
 - 4단계 가이드 UI: 프로젝트 생성, 사용자 계정, 봇 계정 생성 단계별 안내
+
+### 4단계 추가 기능 2 (2026-01-30)
+- Supabase CLI 로그인: `/supabase_login` 엔드포인트 추가 (supabase login 실행)
+- 로그인 상태 확인: `/supabase_login_status` 엔드포인트 추가 (orgs list로 상태 확인)
+- UI: 로그인 버튼, 상태 표시, 페이지 로드 시 자동 상태 확인
+- Authentication 설정 안내: "Allow new users to sign up" 활성화, "Confirm email" 비활성화 안내
 
 ### 설치 마법사 완료
 
