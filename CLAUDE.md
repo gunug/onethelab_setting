@@ -130,6 +130,11 @@ run_ngrok.bat
   - 페이지 로드 시 URL에서 code, state, error 파라미터 자동 제거
   - 새로고침 버튼 클릭 시 클린 URL로 이동 (OAuth 파라미터 없이)
   - history.replaceState로 뒤로가기 시 OAuth URL로 가지 않도록 처리
+- 세션 자동 복구 기능
+  - 타임아웃 발생 시 자동 세션 리셋
+  - 모든 클라이언트 연결 종료 시 세션 리셋 및 처리 중인 작업 중단
+  - Claude CLI state/session error 감지 시 새 세션으로 자동 재시도 (최대 1회)
+  - stderr에서 "state", "session", "invalid" 키워드 감지
 
 ## Claude CLI 연동
 

@@ -381,9 +381,11 @@ async def process_queue():
             await send_usage_status()
 
 
-async def ask_claude(message: str, sender: str):
+async def ask_claude(message: str, sender: str, retry_count: int = 0):
     """Claude CLI에 메시지 전달하고 응답 받기"""
     global claude_processing, current_stop_event, session_id, session_started
+
+    MAX_RETRY = 1  # state error 시 최대 재시도 횟수
 
     claude_processing = True
     current_stop_event = threading.Event()
@@ -405,6 +407,7 @@ async def ask_claude(message: str, sender: str):
         final_result = ""
         current_turn = 0
         start_time = asyncio.get_event_loop().time()
+        session_error_detected = False  # 세션 에러 감지 플래그
 
         while True:
             # 타임아웃 체크
@@ -413,6 +416,8 @@ async def ask_claude(message: str, sender: str):
                 print(f"[Claude] 타임아웃 ({CLAUDE_TIMEOUT}초)")
                 current_stop_event.set()
                 await send_progress("error", {"message": f"타임아웃 ({CLAUDE_TIMEOUT}초)"})
+                # 타임아웃 시 세션 리셋 (다음 요청에서 새 세션 시작)
+                reset_session()
                 break
 
             # 큐에서 결과 가져오기
@@ -429,11 +434,27 @@ async def ask_claude(message: str, sender: str):
             msg_type, content = item
 
             if msg_type == "done":
+                # 세션 에러가 감지되었고 재시도 가능하면 재시도
+                if session_error_detected and retry_count < MAX_RETRY:
+                    print(f"[Claude] 세션 에러로 인한 재시도 ({retry_count + 1}/{MAX_RETRY})")
+                    thread.join(timeout=5)
+                    reset_session()
+                    claude_processing = False
+                    await send_progress("retry", {"message": "세션 에러 - 새 세션으로 재시도 중..."})
+                    return await ask_claude(message, sender, retry_count + 1)
                 break
             elif msg_type == "error":
                 print(f"[Claude 오류]: {content}")
                 await send_progress("error", {"message": content})
                 break
+            elif msg_type == "stderr":
+                # stderr에서 세션/상태 에러 감지
+                content_lower = content.lower()
+                if "state" in content_lower or "session" in content_lower or "invalid" in content_lower:
+                    print(f"[Claude] 세션 에러 감지: {content}")
+                    session_error_detected = True
+                else:
+                    print(f"[DEBUG] stderr: {content}")
             elif msg_type == "line":
                 try:
                     data = json.loads(content)
@@ -709,6 +730,17 @@ async def handle_websocket(request):
     finally:
         connected_clients.discard(ws)
         print(f"[연결 해제] 클라이언트 종료 (ID: {client_id}, 남은 {len(connected_clients)}명)")
+
+        # 마지막 클라이언트가 나가면 세션 리셋
+        if len(connected_clients) == 0:
+            global claude_processing, current_stop_event
+            # 처리 중인 작업이 있으면 중단
+            if claude_processing and current_stop_event:
+                current_stop_event.set()
+                print("[정리] 처리 중인 Claude 작업 중단")
+            claude_processing = False
+            reset_session()
+            print("[정리] 모든 클라이언트 종료 - 세션 리셋 완료")
 
     return ws
 
