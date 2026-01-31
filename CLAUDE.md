@@ -128,8 +128,8 @@ run_ngrok.bat
   - 페이지 로드 시 URL에서 code, state, error 파라미터 자동 제거
   - 새로고침 버튼 클릭 시 클린 URL로 이동 (OAuth 파라미터 없이)
   - history.replaceState로 뒤로가기 시 OAuth URL로 가지 않도록 처리
-  - WebSocket 연결 성공 시 ngrok OAuth 쿠키 자동 삭제 (연결 후 불필요한 쿠키 정리)
-  - 주의: ngrok OAuth 인증은 ngrok 서버에서 처리되므로, 터널 재시작 후 state 충돌 시 브라우저 쿠키 수동 삭제 필요
+  - ngrok OAuth 쿠키는 삭제하지 않음 (재연결 시 state 에러 방지)
+  - 주의: 터널 재시작 후 state 충돌 시 브라우저 쿠키 수동 삭제 필요
 - 세션 자동 복구 기능
   - 타임아웃 발생 시 자동 세션 리셋
   - 모든 클라이언트 연결 종료 시 세션 리셋 및 처리 중인 작업 중단
@@ -155,7 +155,29 @@ run_ngrok.bat
 
 상세 내용: [chat_socket/docs/claude_code_tools.md](chat_socket/docs/claude_code_tools.md)
 
+## 알려진 문제
+
+### 노트북 배터리 모드에서 WebSocket 연결 끊김
+- **원인**: Windows 전원 관리가 Wi-Fi 어댑터를 절전 모드로 전환
+- **증상**: 여러 WebSocket 연결이 동시에 끊김 (서버 문제 아님)
+- **해결**: `Win + X` → 장치 관리자 (또는 `장치 관리자` → `네트워크 어댑터` → Wi-Fi → `속성` → `전원 관리`) → "전원을 절약하기 위해 컴퓨터가 이 장치를 끌 수 있음" 체크 해제
+- 자세한 내용: [README.md 문제 해결](README.md#문제-해결)
+
 ## 버전 정보
+
+### v3.5 (2026-01-31)
+- **ngrok 터널 활성 유지 기능 추가**: 15분 타임아웃으로 인한 state 에러 방지
+  - 클라이언트에서 5분마다 HTTP ping 요청 (`/ping` 엔드포인트)
+  - ngrok 터널 세션 비활성화 방지
+
+### v3.4 (2026-01-31)
+- **ngrok OAuth 쿠키 삭제 기능 제거**: 재연결 시 state 에러 방지
+  - WebSocket 연결 시 쿠키 삭제하지 않음
+  - 새로고침/OAuth 에러 시에도 쿠키 유지
+  - URL OAuth 파라미터는 계속 자동 정리
+
+### v3.3 (2026-01-31)
+- **릴리즈 패키지 폴더 구조 수정**: ZIP 내 chat_socket 폴더 포함
 
 ### v3.2 (2026-01-31)
 - **포트번호 설정 기능**: config.bat에서 서버 포트 설정 가능 (기본값 8765)

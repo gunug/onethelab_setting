@@ -655,6 +655,11 @@ async def handle_icon(request):
     return web.Response(text=f"Icon {filename} not found", status=404)
 
 
+async def handle_ping(request):
+    """HTTP GET /ping - Keep-alive 엔드포인트 (ngrok 터널 활성 유지용)"""
+    return web.Response(text="pong", headers={"Cache-Control": "no-store"})
+
+
 async def handle_websocket(request):
     """WebSocket /ws - 채팅 처리"""
     ws = web.WebSocketResponse(heartbeat=30)  # 30초마다 ping/pong으로 연결 유지
@@ -751,6 +756,7 @@ async def init_app():
     app = web.Application()
     app.router.add_get("/", handle_index)
     app.router.add_get("/ws", handle_websocket)
+    app.router.add_get("/ping", handle_ping)  # Keep-alive 엔드포인트
     # PWA 지원
     app.router.add_get("/manifest.json", handle_manifest)
     app.router.add_get("/service-worker.js", handle_service_worker)

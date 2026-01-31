@@ -2371,11 +2371,40 @@
             }
         }
 
+        // ngrok 터널 활성 유지를 위한 주기적 HTTP ping
+        let keepAliveInterval = null;
+        const KEEP_ALIVE_INTERVAL = 5 * 60 * 1000;  // 5분마다
+
+        function startKeepAlive() {
+            if (keepAliveInterval) return;
+
+            keepAliveInterval = setInterval(async () => {
+                try {
+                    // 간단한 HTTP 요청으로 ngrok 터널 활성 유지
+                    const response = await fetch('/', { method: 'HEAD', cache: 'no-store' });
+                    console.log('[Keep-Alive] ping 성공:', response.status);
+                } catch (e) {
+                    console.warn('[Keep-Alive] ping 실패:', e.message);
+                }
+            }, KEEP_ALIVE_INTERVAL);
+
+            console.log('[Keep-Alive] 시작 (5분 간격)');
+        }
+
+        function stopKeepAlive() {
+            if (keepAliveInterval) {
+                clearInterval(keepAliveInterval);
+                keepAliveInterval = null;
+                console.log('[Keep-Alive] 중지');
+            }
+        }
+
         // 초기화 - 자동 연결
         updateServerUrlDisplay();
         initUsageInfoPanel();
         lockScreenOrientation();
         requestWakeLock();  // 화면 자동 잠금 방지
+        startKeepAlive();  // ngrok 터널 활성 유지
         connect();
 
         // Service Worker 등록 (PWA)
