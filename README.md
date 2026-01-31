@@ -148,6 +148,20 @@ run_ngrok.bat
 ```
 브라우저에서 ngrok URL (https://your-domain.ngrok-free.app) 접속
 
+## 문제 해결
+
+### ngrok 접속 시 OAuth state error 발생
+
+ngrok 터널을 재시작한 후 접속할 때 OAuth state error가 발생할 수 있습니다.
+
+**원인**: 브라우저에 저장된 이전 세션의 OAuth 쿠키가 새 터널 세션과 충돌
+
+**해결 방법**:
+1. 브라우저 쿠키 삭제 후 재접속
+   - Chrome: `F12` → Application → Cookies → ngrok 관련 쿠키 삭제
+   - 또는 `Ctrl+Shift+Delete` → 쿠키 삭제
+2. 시크릿/프라이빗 창에서 접속
+
 ## 사용 방법
 
 ### 기본 사용

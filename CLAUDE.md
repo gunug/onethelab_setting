@@ -25,7 +25,7 @@ chat_socket/            # 로컬 WebSocket 채팅 서버
   service-worker.js     # PWA 서비스 워커
   icons/                # PWA 앱 아이콘
   install.bat           # 의존성 설치 스크립트 (Python, Node.js, ngrok, aiohttp, Claude CLI)
-  config.bat            # ngrok 설정 스크립트 (authtoken, domain, OAuth)
+  config.bat            # ngrok 설정 스크립트 (port, authtoken, domain, OAuth)
   run.bat               # 로컬 실행 스크립트
   run_ngrok.bat         # ngrok 외부 접속 스크립트
   run_server_loop.bat   # 서버 재시작 루프 (내부용)
@@ -59,7 +59,7 @@ install.bat  # Python, Node.js, ngrok, aiohttp, Claude CLI 자동 설치
 
 ### 3. ngrok 설정 (외부 접속 시)
 ```bash
-config.bat  # ngrok authtoken, domain, OAuth 설정
+config.bat  # port, ngrok authtoken, domain, OAuth 설정
 ```
 
 ## 실행 방법
@@ -80,7 +80,7 @@ run_ngrok.bat
 
 ## 주요 기능
 
-- HTTP + WebSocket 통합 서버 (aiohttp, 포트 8765)
+- HTTP + WebSocket 통합 서버 (aiohttp, 기본 포트 8765, config.bat에서 변경 가능)
 - `/` : index.html 자동 제공
 - `/ws` : WebSocket 채팅 연결
 - Claude CLI 스트리밍 연동
@@ -129,6 +129,7 @@ run_ngrok.bat
   - 새로고침 버튼 클릭 시 클린 URL로 이동 (OAuth 파라미터 없이)
   - history.replaceState로 뒤로가기 시 OAuth URL로 가지 않도록 처리
   - WebSocket 연결 성공 시 ngrok OAuth 쿠키 자동 삭제 (연결 후 불필요한 쿠키 정리)
+  - 주의: ngrok OAuth 인증은 ngrok 서버에서 처리되므로, 터널 재시작 후 state 충돌 시 브라우저 쿠키 수동 삭제 필요
 - 세션 자동 복구 기능
   - 타임아웃 발생 시 자동 세션 리셋
   - 모든 클라이언트 연결 종료 시 세션 리셋 및 처리 중인 작업 중단
@@ -155,6 +156,9 @@ run_ngrok.bat
 상세 내용: [chat_socket/docs/claude_code_tools.md](chat_socket/docs/claude_code_tools.md)
 
 ## 버전 정보
+
+### v3.2 (2026-01-31)
+- **포트번호 설정 기능**: config.bat에서 서버 포트 설정 가능 (기본값 8765)
 
 ### v3.1 (2026-01-31)
 - **바로가기 파일 제거**: .lnk 파일 삭제, bat 파일로 실행 통일

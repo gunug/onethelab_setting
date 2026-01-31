@@ -7,7 +7,7 @@
 
     <!-- PWA 메타 태그 -->
     <meta name="description" content="Claude AI와 실시간 채팅하는 웹 앱">
-    <meta name="theme-color" content="#e94560">
+    <meta name="theme-color" content="#6366f1">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="ChatSocket">
@@ -47,7 +47,7 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background-color: #1a1a2e;
+            background-color: #0a0a0a;
             color: #eee;
             height: 100%;
             width: 100%;
@@ -76,19 +76,23 @@
 
         /* 헤더 */
         .header {
-            background-color: #16213e;
+            background-color: #111;
             padding: 12px 20px;
             padding-top: calc(12px + env(safe-area-inset-top, 0px)); /* iOS 노치 대응 */
             display: flex;
             align-items: center;
             justify-content: space-between;
-            border-bottom: 1px solid #0f3460;
+            border-bottom: 1px solid #222;
             flex-shrink: 0;
         }
 
         .header h1 {
             font-size: 18px;
-            color: #e94560;
+            color: #fff;
+        }
+
+        .header h1 span {
+            color: #6366f1;
         }
 
         .header-right {
@@ -121,9 +125,9 @@
 
         .clear-btn, .restart-btn {
             padding: 6px 12px;
-            background-color: #0f3460;
+            background-color: #1a1a2e;
             color: #888;
-            border: 1px solid #0f3460;
+            border: 1px solid #333;
             border-radius: 6px;
             font-size: 12px;
             cursor: pointer;
@@ -131,26 +135,28 @@
         }
 
         .clear-btn:hover, .restart-btn:hover {
-            background-color: #1e3a5f;
+            background-color: #222;
+            border-color: #6366f1;
             color: #eee;
         }
 
         .restart-btn {
-            background-color: #4a1942;
-            border-color: #4a1942;
+            background-color: #1a1a2e;
+            border-color: #333;
         }
 
         .restart-btn:hover {
-            background-color: #6b2c5c;
+            background-color: #222;
+            border-color: #a855f7;
         }
 
         .install-btn {
-            background-color: #2563eb;
-            border-color: #2563eb;
+            background-color: #6366f1;
+            border-color: #6366f1;
         }
 
         .install-btn:hover {
-            background-color: #3b82f6;
+            background-color: #7c7ff7;
         }
 
         /* 채팅 영역 */
@@ -174,7 +180,7 @@
 
         .message.system .content {
             display: inline-block;
-            background-color: #0f3460;
+            background-color: #1a1a2e;
             color: #888;
             padding: 6px 12px;
             border-radius: 12px;
@@ -205,17 +211,17 @@
         }
 
         .message.claude .content {
-            background-color: #0f3460;
+            background-color: #1a1a2e;
             border-bottom-left-radius: 4px;
         }
 
         .message.user .content {
-            background-color: #e94560;
+            background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
             border-bottom-right-radius: 4px;
         }
 
         .message.other .content {
-            background-color: #1e3a5f;
+            background-color: #16162a;
             border-bottom-left-radius: 4px;
         }
 
@@ -263,8 +269,8 @@
         .progress-container {
             margin-bottom: 16px;
             max-width: 100%;
-            background-color: #16213e;
-            border: 1px solid #0f3460;
+            background-color: #111;
+            border: 1px solid #222;
             border-radius: 12px;
             padding: 16px;
         }
@@ -279,7 +285,7 @@
         .progress-icon {
             width: 32px;
             height: 32px;
-            background: linear-gradient(135deg, #e94560, #0f3460);
+            background: linear-gradient(135deg, #6366f1, #a855f7);
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -300,14 +306,14 @@
         .progress-title {
             font-size: 14px;
             font-weight: 500;
-            color: #e94560;
+            color: #6366f1;
         }
 
         .progress-model {
             font-size: 12px;
             color: #888;
             margin-left: auto;
-            background-color: #0f3460;
+            background-color: #1a1a2e;
             padding: 2px 8px;
             border-radius: 4px;
         }
@@ -321,7 +327,7 @@
             align-items: flex-start;
             gap: 10px;
             padding: 8px 0;
-            border-bottom: 1px solid #0f3460;
+            border-bottom: 1px solid #222;
         }
 
         .progress-step:last-child {
@@ -338,12 +344,12 @@
             font-size: 11px;
             font-weight: bold;
             flex-shrink: 0;
-            background-color: #0f3460;
+            background-color: #1a1a2e;
             color: #888;
         }
 
         .step-indicator.active {
-            background-color: #e94560;
+            background-color: #6366f1;
             color: white;
             animation: pulse 1.5s ease-in-out infinite;
         }
@@ -390,7 +396,7 @@
 
         .progress-bar-container {
             height: 4px;
-            background-color: #0f3460;
+            background-color: #1a1a2e;
             border-radius: 2px;
             overflow: hidden;
             margin-bottom: 12px;
@@ -398,7 +404,7 @@
 
         .progress-bar {
             height: 100%;
-            background-color: #e94560;
+            background-color: #6366f1;
             width: 0%;
             transition: width 0.3s;
         }
@@ -422,14 +428,14 @@
         /* Edit Diff 스타일 */
         .edit-diff {
             margin-top: 10px;
-            border: 1px solid #0f3460;
+            border: 1px solid #222;
             border-radius: 8px;
             overflow: hidden;
             font-size: 12px;
         }
 
         .edit-diff-header {
-            background-color: #0f3460;
+            background-color: #1a1a2e;
             padding: 8px 12px;
             display: flex;
             justify-content: space-between;
@@ -438,7 +444,7 @@
         }
 
         .edit-diff-header:hover {
-            background-color: #1e3a5f;
+            background-color: #16162a;
         }
 
         .edit-diff-file {
@@ -488,14 +494,14 @@
         /* Write Content 스타일 */
         .write-content {
             margin-top: 10px;
-            border: 1px solid #0f3460;
+            border: 1px solid #222;
             border-radius: 8px;
             overflow: hidden;
             font-size: 12px;
         }
 
         .write-content-header {
-            background-color: #0f3460;
+            background-color: #1a1a2e;
             padding: 8px 12px;
             display: flex;
             justify-content: space-between;
@@ -504,7 +510,7 @@
         }
 
         .write-content-header:hover {
-            background-color: #1e3a5f;
+            background-color: #16162a;
         }
 
         .write-content-file {
@@ -529,14 +535,14 @@
         /* Todo 스타일 */
         .todo-list {
             margin-top: 10px;
-            border: 1px solid #0f3460;
+            border: 1px solid #222;
             border-radius: 8px;
             overflow: hidden;
             font-size: 12px;
         }
 
         .todo-header {
-            background-color: #0f3460;
+            background-color: #1a1a2e;
             padding: 8px 12px;
             display: flex;
             justify-content: space-between;
@@ -545,7 +551,7 @@
         }
 
         .todo-header:hover {
-            background-color: #1e3a5f;
+            background-color: #16162a;
         }
 
         .todo-title {
@@ -609,10 +615,10 @@
 
         /* 입력 영역 */
         .input-container {
-            background-color: #16213e;
+            background-color: #111;
             padding: 12px 20px;
             padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); /* iOS 노치 대응 */
-            border-top: 1px solid #0f3460;
+            border-top: 1px solid #1a1a2e;
             flex-shrink: 0;
         }
 
@@ -624,7 +630,7 @@
         .username-input {
             width: 120px;
             padding: 10px 14px;
-            border: 1px solid #0f3460;
+            border: 1px solid #222;
             border-radius: 8px;
             background-color: #1a1a2e;
             color: #eee;
@@ -634,7 +640,7 @@
         .message-input {
             flex: 1;
             padding: 10px 14px;
-            border: 1px solid #0f3460;
+            border: 1px solid #222;
             border-radius: 8px;
             background-color: #1a1a2e;
             color: #eee;
@@ -645,12 +651,12 @@
         .message-input:focus,
         .username-input:focus {
             outline: none;
-            border-color: #e94560;
+            border-color: #6366f1;
         }
 
         .send-btn {
             padding: 10px 24px;
-            background-color: #e94560;
+            background-color: #6366f1;
             color: white;
             border: none;
             border-radius: 8px;
@@ -660,7 +666,7 @@
         }
 
         .send-btn:hover {
-            background-color: #d63850;
+            background-color: #7c7ff7;
         }
 
         .send-btn:disabled {
@@ -822,7 +828,7 @@
         }
 
         .usage-info-body h3 {
-            color: #e94560;
+            color: #6366f1;
             font-size: 13px;
             margin: 14px 0 8px 0;
         }
@@ -846,7 +852,7 @@
 
         .usage-info-body th {
             background: #1a1a2e;
-            color: #e94560;
+            color: #6366f1;
         }
 
         .usage-info-body ul {
@@ -869,8 +875,8 @@
 
         /* 요청 대기열 UI */
         .queue-container {
-            background-color: #16213e;
-            border-bottom: 1px solid #0f3460;
+            background-color: #111;
+            border-bottom: 1px solid #222;
             padding: 8px 20px;
             flex-shrink: 0;
         }
@@ -899,7 +905,7 @@
         }
 
         .queue-count {
-            background-color: #e94560;
+            background-color: #6366f1;
             color: white;
             padding: 2px 8px;
             border-radius: 10px;
@@ -943,7 +949,7 @@
         .queue-item-number {
             width: 20px;
             height: 20px;
-            background-color: #0f3460;
+            background-color: #1a1a2e;
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -960,7 +966,7 @@
 
         .queue-item-sender {
             font-size: 11px;
-            color: #e94560;
+            color: #6366f1;
             margin-bottom: 2px;
         }
 
@@ -1333,7 +1339,7 @@
 <body>
 <div class="app-container">
     <div class="header">
-        <h1>Chat Socket</h1>
+        <h1>Claude<span>Remote</span></h1>
         <div class="header-right">
             <div class="usage-container" id="usageContainer">
                 <div class="usage-item">

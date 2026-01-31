@@ -5,10 +5,10 @@ echo ========================================
 echo.
 
 REM Check aiohttp
-pip show aiohttp > nul 2>&1
+python -m pip show aiohttp > nul 2>&1
 if errorlevel 1 (
     echo Installing aiohttp library...
-    pip install aiohttp
+    python -m pip install aiohttp
     echo.
 )
 
@@ -20,6 +20,13 @@ echo Starting server...
 echo Access: http://localhost:8765
 echo Working directory: %cd%
 echo.
+
+REM Open browser (only on first start)
+if not defined BROWSER_OPENED (
+    set BROWSER_OPENED=1
+    start http://localhost:8765
+)
+
 python "chat_socket/server.py"
 
 REM Exit code 100 = restart request

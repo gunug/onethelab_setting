@@ -8,9 +8,28 @@ echo ================================================
 echo.
 
 :: ========================================
-:: 1. ngrok authtoken
+:: 1. Port number
 :: ========================================
-echo [1/3] ngrok authtoken setup...
+echo [1/4] Port number setup...
+echo.
+echo ================================================
+echo Default port: 8765
+echo (Press Enter to use default)
+echo ================================================
+echo.
+set /p SERVER_PORT=Port number:
+if "%SERVER_PORT%"=="" (
+    set "SERVER_PORT=8765"
+    echo [OK] Using default port: 8765
+) else (
+    echo [OK] Port: %SERVER_PORT%
+)
+echo.
+
+:: ========================================
+:: 2. ngrok authtoken
+:: ========================================
+echo [2/4] ngrok authtoken setup...
 echo.
 echo ================================================
 echo 1. Go to https://dashboard.ngrok.com
@@ -34,9 +53,9 @@ if not "%NGROK_TOKEN%"=="" (
 echo.
 
 :: ========================================
-:: 2. Static domain (optional)
+:: 3. Static domain (optional)
 :: ========================================
-echo [2/3] Static domain setup...
+echo [3/4] Static domain setup...
 echo.
 echo ================================================
 echo Example: myapp.ngrok-free.app
@@ -52,9 +71,9 @@ if "%NGROK_DOMAIN%"=="" (
 echo.
 
 :: ========================================
-:: 3. Google OAuth (optional)
+:: 4. Google OAuth (optional)
 :: ========================================
-echo [3/3] Google OAuth setup...
+echo [4/4] Google OAuth setup...
 echo.
 echo ================================================
 echo Enter allowed Google email address
@@ -78,7 +97,8 @@ echo [Info] Generating run_ngrok.bat...
 set "OUTPUT_FILE=%~dp0run_ngrok.bat"
 
 :: Build ngrok command
-set "NGROK_CMD=ngrok http 8765"
+set "NGROK_CMD=ngrok http %SERVER_PORT%"
+set "PORT_DISPLAY=%SERVER_PORT%"
 set "DOMAIN_DISPLAY=Random URL"
 set "OAUTH_DISPLAY=Public"
 
@@ -104,11 +124,12 @@ echo echo ================================================
 echo echo Chat Socket + ngrok
 echo echo ================================================
 echo echo.
+echo echo Port: %PORT_DISPLAY%
 echo echo Domain: %DOMAIN_DISPLAY%
 echo echo OAuth: %OAUTH_DISPLAY%
 echo echo.
-echo echo [1] Starting server...
-echo start "Chat Socket Server" /D "%%SCRIPT_DIR%%" cmd /k "python server.py"
+echo echo [1] Starting server (with restart loop)...
+echo start "Chat Socket Server" /D "%%SCRIPT_DIR%%" cmd /k "run_server_loop.bat %SERVER_PORT%"
 echo echo [Wait] 3 seconds...
 echo timeout /t 3 /nobreak ^> nul
 echo echo [2] Starting ngrok tunnel...
@@ -132,6 +153,7 @@ echo Configuration complete!
 echo ================================================
 echo.
 echo Settings:
+echo   Port:   %PORT_DISPLAY%
 echo   Domain: %DOMAIN_DISPLAY%
 echo   OAuth:  %OAUTH_DISPLAY%
 echo.

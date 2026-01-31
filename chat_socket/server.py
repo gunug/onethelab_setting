@@ -5,6 +5,7 @@ import threading
 import uuid
 import sys
 import os
+import argparse
 from datetime import datetime
 from queue import Queue, Empty
 from aiohttp import web
@@ -18,7 +19,7 @@ if sys.platform == "win32":
 CLAUDE_TIMEOUT = 300  # Claude CLI 타임아웃 (초)
 USD_TO_KRW = 1430  # 환율
 HOST = "0.0.0.0"
-PORT = 8765
+DEFAULT_PORT = 8765
 
 # 현재 스크립트 디렉토리
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -760,6 +761,12 @@ async def init_app():
 def main():
     global session_id
 
+    # 명령줄 인자 파싱
+    parser = argparse.ArgumentParser(description="Chat Socket 통합 서버")
+    parser.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"서버 포트 (기본값: {DEFAULT_PORT})")
+    args = parser.parse_args()
+    port = args.port
+
     print("=" * 50)
     print("Chat Socket 통합 서버 (HTTP + WebSocket)")
     print("=" * 50)
@@ -777,18 +784,18 @@ def main():
     print(f"세션 ID: {session_id}")
 
     print("-" * 50)
-    print(f"HTTP:      http://{HOST}:{PORT}/")
-    print(f"WebSocket: ws://{HOST}:{PORT}/ws")
+    print(f"HTTP:      http://{HOST}:{port}/")
+    print(f"WebSocket: ws://{HOST}:{port}/ws")
     print("-" * 50)
     print("ngrok 사용 시:")
-    print(f"  ngrok http {PORT}")
+    print(f"  ngrok http {port}")
     print("  브라우저에서 ngrok URL 접속")
     print("-" * 50)
     print("종료: Ctrl+C")
     print("=" * 50)
 
     # 서버 실행
-    web.run_app(init_app(), host=HOST, port=PORT, print=None)
+    web.run_app(init_app(), host=HOST, port=port, print=None)
 
 
 if __name__ == "__main__":
