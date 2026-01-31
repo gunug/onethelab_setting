@@ -2082,14 +2082,7 @@
             ws.onopen = () => {
                 console.log('WebSocket 연결됨:', wsUrl);
                 updateConnectionStatus(true);
-
-                // ngrok 도메인인 경우 OAuth 쿠키 정리 (연결 성공 후 불필요)
-                if (window.location.hostname.includes('ngrok')) {
-                    const cleared = clearNgrokOAuthCookies();
-                    if (cleared > 0) {
-                        console.log(`[WebSocket] 연결 성공 후 OAuth 쿠키 ${cleared}개 삭제`);
-                    }
-                }
+                // ngrok OAuth 쿠키는 삭제하지 않음 (재연결 시 state 에러 방지)
             };
 
             ws.onclose = () => {
@@ -2314,58 +2307,8 @@
                 currentProgress = null;
             }
         });
-
-        // ngrok OAuth 관련 쿠키 삭제
-        function clearNgrokOAuthCookies() {
-            // 현재 도메인과 상위 도메인의 쿠키 삭제 시도
-            const domains = [
-                window.location.hostname,
-                '.' + window.location.hostname,
-                '.ngrok-free.app',
-                '.ngrok.io',
-                '.ngrok.com'
-            ];
-
-            // ngrok OAuth 관련 쿠키 이름들
-            const cookieNames = [
-                'ngrok_session',
-                'ngrok_oauth_state',
-                'ngrok_oauth_csrf',
-                'session',
-                'oauth_state',
-                '_session',
-                '__session'
-            ];
-
-            // 모든 쿠키 가져오기
-            const allCookies = document.cookie.split(';');
-            let clearedCount = 0;
-
-            allCookies.forEach(cookie => {
-                const cookieName = cookie.split('=')[0].trim();
-                // ngrok 관련 쿠키이거나 session/oauth 관련 쿠키 삭제
-                if (cookieName && (
-                    cookieName.toLowerCase().includes('ngrok') ||
-                    cookieName.toLowerCase().includes('session') ||
-                    cookieName.toLowerCase().includes('oauth') ||
-                    cookieName.toLowerCase().includes('state') ||
-                    cookieName.toLowerCase().includes('csrf')
-                )) {
-                    domains.forEach(domain => {
-                        // 다양한 path와 domain 조합으로 삭제 시도
-                        document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
-                        document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=${domain}`;
-                        document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=${domain}; secure`;
-                    });
-                    clearedCount++;
-                    console.log(`[OAuth] 쿠키 삭제: ${cookieName}`);
-                }
-            });
-
-            return clearedCount;
-        }
-
         // URL에서 OAuth 파라미터 정리 (ngrok ERR_NGROK_3303 방지)
+        // 참고: ngrok OAuth 쿠키는 삭제하지 않음 (재연결 시 state 에러 방지)
         function cleanOAuthParams() {
             const url = new URL(window.location.href);
             const hasError = url.searchParams.has('error');
@@ -2374,10 +2317,9 @@
                                    hasError;
 
             if (hasOAuthParams) {
-                // 에러가 있으면 쿠키도 함께 삭제
+                // 에러가 있어도 쿠키는 삭제하지 않음 (state 에러 방지)
                 if (hasError) {
-                    console.log('[OAuth] 에러 감지, 쿠키 삭제 시도');
-                    clearNgrokOAuthCookies();
+                    console.log('[OAuth] 에러 감지, URL 파라미터만 정리');
                 }
 
                 url.searchParams.delete('code');
@@ -2395,12 +2337,10 @@
         // 페이지 로드 시 OAuth 파라미터 자동 정리
         cleanOAuthParams();
 
-        // 페이지 새로고침 버튼 (OAuth 쿠키 삭제 + 루트 URL로 완전 이동)
+        // 페이지 새로고침 버튼 (루트 URL로 완전 이동)
         const refreshBtn = document.getElementById('refreshBtn');
         refreshBtn.addEventListener('click', () => {
-            // ngrok OAuth 쿠키 삭제
-            const cleared = clearNgrokOAuthCookies();
-            console.log(`[새로고침] OAuth 쿠키 ${cleared}개 삭제됨`);
+            // ngrok OAuth 쿠키는 삭제하지 않음 (state 에러 방지)
             // 루트 URL로 이동 (모든 파라미터/경로 제거)
             window.location.href = window.location.origin + '/';
         });
